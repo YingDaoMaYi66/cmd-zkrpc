@@ -1,0 +1,119 @@
+package com.zkrpc;
+
+import com.zkrpc.discovery.Registry;
+import com.zkrpc.discovery.RegistryConfig;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.zookeeper.ZooKeeper;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Slf4j
+public class YrpcBootstrap {
+
+    //YrpcBootstrap是一个单例类，使用饿汉式单例模式，我们希望每个应用都只有一个实例
+    private static final YrpcBootstrap yrpcBootstrap = new YrpcBootstrap();
+    //维护一个已经发布且暴露的服务列表Key是Interface的全限定名 value ->ServiceConfig
+    private static final  Map<String,ServiceConfig<?>> SERVICE_LIST = new ConcurrentHashMap<>(16);
+
+    //定义一些相关的一些基础的配置
+    private String appName = "default";
+    //维护哟个注册中心
+    private RegistryConfig registryConfig;
+    private ProtocolConfig protocolConfig;
+    private int port = 8088;
+    //维护一个zookeeper实例
+    private ZooKeeper  zookeeper;
+    //注册中心
+    private Registry registry;
+    private YrpcBootstrap(){
+
+    }
+
+    public static YrpcBootstrap getInstance() {
+        return yrpcBootstrap;
+    }
+
+    /**
+     * 用来定义当前应用的名字
+     * @param appName 当前应用的名字
+     * @return 链式编程
+     */
+    public YrpcBootstrap application(String appName) {
+        this.appName = appName;
+        return this;
+    }
+
+    /**
+     * 用来配置一个注册中心
+     * @param registryConfig 注册中心
+     * @return 当前实例
+     */
+    public YrpcBootstrap registry(RegistryConfig registryConfig) {
+        //这里维护一个zookeeper实例，但是这样写，会将zookeeper和当前工程耦合
+        //尝试使用registryConfig获取一个注册中心，有点工厂设计模式的意思了
+        this.registry = registryConfig.getRegistry();
+        return this;
+    }
+
+    /**
+     * 配置当前暴露的服务使用的协议
+     * @param protocalConfig 协议的封装
+     * @return this当前实例
+     */
+    public YrpcBootstrap protocol(ProtocolConfig protocalConfig) {
+        this.protocolConfig = protocalConfig;
+        if(log.isDebugEnabled()){
+            log.debug("当前工程使用了:{}协议进行序列化",protocalConfig.toString());
+        }
+        return this;
+    }
+
+    /*
+     * -----------------------------------服务提供方的相关api-----------------------------------------------------------------------------------------
+     */
+
+    /**
+     * 发布服务 将接口和匹配的实现注册到服务中心
+     * @param service 独立的封装好的需要发布的服务
+     * @return this当前实例
+     */
+    public YrpcBootstrap publish(ServiceConfig<?> service) {
+        //我们使用了注册中心的概念，使用注册中心的一个实现完成注册
+        registry.register(service);
+        //1、当服务调用方，通过接口，方法名，具体的方法参数列表发起调用，提供方怎么知道使用哪一个实现
+        //(1)new一个 （2）spring beanFactory.getBean(Class) 3、自己维护一个映射关系
+        SERVICE_LIST.put(service.getInterface().toString(),service);
+        return this;
+    }
+    public YrpcBootstrap publish(List<ServiceConfig<?>> services) {
+        for(ServiceConfig<?> service : services) {
+            this.publish(service);
+        }
+        return this;
+    }
+
+
+    /**
+     * 启动netty服务
+     */
+    public void start() {
+        try {
+            Thread.sleep(2000000000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    /**
+     * -----------------------------------服务调用方的相关api-----------------------------------------------------------------------------------------
+     */
+    public YrpcBootstrap reference(ReferenceConfig<?> reference) {
+        //债这个方法中我们是否能拿到相关配置项(包括注册中心)
+        //配置Reference，将来调用get方法时，方便生成代理对象
+        //1、reference需要一个注册中心
+        reference.setRegistry(registry);
+        return this;
+    }
+}
