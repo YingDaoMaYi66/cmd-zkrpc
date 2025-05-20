@@ -2,8 +2,17 @@ package com.zkrpc;
 
 import com.zkrpc.discovery.Registry;
 import com.zkrpc.discovery.RegistryConfig;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.*;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.zookeeper.ZooKeeper;
+import java.net.InetSocketAddress;
+import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,17 +24,20 @@ public class YrpcBootstrap {
     private static final YrpcBootstrap yrpcBootstrap = new YrpcBootstrap();
     //维护一个已经发布且暴露的服务列表Key是Interface的全限定名 value ->ServiceConfig
     private static final  Map<String,ServiceConfig<?>> SERVICE_LIST = new ConcurrentHashMap<>(16);
-
     //定义一些相关的一些基础的配置
     private String appName = "default";
-    //维护哟个注册中心
+    //维护一个注册中心
     private RegistryConfig registryConfig;
+    //维护一个协议的配置
     private ProtocolConfig protocolConfig;
-    private int port = 8088;
+    private final int port = 8088;
     //维护一个zookeeper实例
     private ZooKeeper  zookeeper;
     //注册中心
     private Registry registry;
+    //维护一个链接的缓存 如果使用这样的类做key一定要看它有没有重写hashcode和equals 和tostring方法
+    public final static Map<InetSocketAddress, Channel> CHANNEL_CACHE = new ConcurrentHashMap<>(16);
+
     private YrpcBootstrap(){
 
     }
@@ -98,10 +110,40 @@ public class YrpcBootstrap {
      * 启动netty服务
      */
     public void start() {
+        //创建eventLoop,老板只负责处理请求，之后会将请求分发到worker
+        EventLoopGroup boss = new NioEventLoopGroup(2);
+        EventLoopGroup worker = new NioEventLoopGroup(10);
         try {
-            Thread.sleep(2000000000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            ServerBootstrap serverbootstrap = new ServerBootstrap();
+            serverbootstrap = serverbootstrap.group(boss, worker)
+                    .channel(NioServerSocketChannel.class)
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(SocketChannel socketChannel) throws Exception {
+                            //是核心，我们要添加很多入站出站的handler
+                            socketChannel.pipeline().addLast(new SimpleChannelInboundHandler<>() {
+                                @Override
+                                protected void channelRead0(ChannelHandlerContext channelHandlerContext, Object msg) throws Exception {
+                                    ByteBuf byteBuf = (ByteBuf) msg;
+                                    log.info("服务端接收到的消息是ByteBuf->:{}", byteBuf.toString(Charset.defaultCharset()));
+                                    //打印结果之后就可以不管了，直接将数据写返回
+                                    channelHandlerContext.channel().writeAndFlush(Unpooled.copiedBuffer("hello world--zkrpc".getBytes()));
+                                }
+                            });
+                        }
+                    });
+            //4、绑定端口
+            ChannelFuture channelFuture = serverbootstrap.bind(port).sync();
+            channelFuture.channel().closeFuture().sync();
+        }catch (InterruptedException e){
+            e.printStackTrace();
+        }finally {
+            try {
+                boss.shutdownGracefully().sync();
+                worker.shutdownGracefully().sync();
+            }catch (InterruptedException e){
+                e.printStackTrace();
+            }
         }
     }
 
