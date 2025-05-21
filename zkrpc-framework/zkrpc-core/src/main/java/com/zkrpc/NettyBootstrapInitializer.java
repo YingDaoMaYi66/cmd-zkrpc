@@ -1,9 +1,8 @@
 package com.zkrpc;
+import com.zkrpc.channelHandler.ConsumerChannelInitializer;
+import com.zkrpc.channelHandler.handler.MySimpleChannelInboundHandler;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -21,18 +20,7 @@ public class NettyBootstrapInitializer {
         NioEventLoopGroup group = new NioEventLoopGroup();
         bootstrap.group(group)
                 .channel(NioSocketChannel.class)
-                .handler(new ChannelInitializer<SocketChannel>() {
-                    @Override
-                    protected void initChannel(SocketChannel socketChannel) throws Exception {
-                        //这里的pipeline是socketchannel的pipeline，里面包含着处理器列表
-                        socketChannel.pipeline().addLast(new SimpleChannelInboundHandler<ByteBuf>() {
-                            @Override
-                            protected void channelRead0(ChannelHandlerContext channelHandlerContext, ByteBuf msg) throws Exception {
-                                log.info("msg-------!!!!!!!!!!->{}", msg.toString());
-                            }
-                        });
-                    }
-                });
+                .handler(new ConsumerChannelInitializer());
     }
 
     private NettyBootstrapInitializer() {}

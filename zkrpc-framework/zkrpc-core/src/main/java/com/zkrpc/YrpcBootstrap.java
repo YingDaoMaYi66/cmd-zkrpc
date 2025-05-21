@@ -15,6 +15,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -37,6 +38,8 @@ public class YrpcBootstrap {
     private Registry registry;
     //维护一个链接的缓存 如果使用这样的类做key一定要看它有没有重写hashcode和equals 和tostring方法
     public final static Map<InetSocketAddress, Channel> CHANNEL_CACHE = new ConcurrentHashMap<>(16);
+    //定义全局对外挂起的 completeableFuture
+    public final static Map<Long, CompletableFuture<Object>> PENDING_REQUEST = new ConcurrentHashMap<>(128);
 
     private YrpcBootstrap(){
 

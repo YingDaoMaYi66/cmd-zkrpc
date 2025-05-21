@@ -20,6 +20,7 @@ public class Application {
                 .reference(reference);
         //获取一个代理对象
         HelloZkrpc helloZkrpc = reference.get();
-        helloZkrpc.sayHi("你好");
+        String sayHi = helloZkrpc.sayHi("你好");
+        log.info("sayHi:{}", sayHi);
     }
 }

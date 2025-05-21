@@ -29,6 +29,13 @@ public class RegistryConfig {
         }
         throw new DiscoveryException("未发现合适的注册中心");
     }
+
+    /**
+     * 这个是判断注册中心的类型
+     * @param connectString 传入注册中心的url
+     * @param ifType 当为true时，返回注册中心的类型，当为false时，返回注册中心的host
+     * @return 注册中心的类型或者host 为String类型
+     */
     private String getRegistryType(String connectString,boolean ifType) {
         String[] typeAndHost = connectString.split("://");
         if(typeAndHost.length != 2) {
