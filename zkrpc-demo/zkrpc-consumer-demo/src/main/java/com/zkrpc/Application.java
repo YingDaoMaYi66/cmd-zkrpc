@@ -14,7 +14,7 @@ public class Application {
 
 
         //代理做了什么？1、链接注册中心 2、拉取服务列表 3、选择一个服务并建立连接 4、发送请求，携带一些信息(接口名，参数列表，方法的名字)，获得结果
-        YrpcBootstrap.getInstance()
+        ZkrpcBootstrap.getInstance()
                 .application("first-yrpc-consumer")
                 .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
                 .reference(reference);

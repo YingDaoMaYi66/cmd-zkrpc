@@ -1,10 +1,12 @@
 package com.zkrpc.proxy.handler;
 
 import com.zkrpc.NettyBootstrapInitializer;
-import com.zkrpc.YrpcBootstrap;
+import com.zkrpc.ZkrpcBootstrap;
 import com.zkrpc.discovery.Registry;
 import com.zkrpc.exceptions.DiscoveryException;
 import com.zkrpc.exceptions.NetworkException;
+import com.zkrpc.transport.message.RequestPayload;
+import com.zkrpc.transport.message.ZkrpcRequest;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
@@ -56,11 +58,28 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         /*
          * 3、封装报文，然后将封装好的报文写到channel中
          */
+        RequestPayload requestPayload = RequestPayload.builder()
+                .interfaceName(interfaceRef.getName())
+                .methodName(method.getName())
+                .parameterType(method.getParameterTypes())
+                .parametersValue(args)
+                .returnType(method.getReturnType())
+                .build();
+        //todo 需要对请求id和各种类型做处理
+        ZkrpcRequest zkrpcRequest = ZkrpcRequest.builder()
+                .requestId(1L)
+                .compressType((byte) 1)
+                .requestType((byte) 1)
+                .serializeType((byte) 1)
+                .requestPayload(requestPayload)
+                .build();
+
         //4、写出报文
         CompletableFuture<Object> completableFuture = new CompletableFuture<>();
-        YrpcBootstrap.PENDING_REQUEST.put(1L, completableFuture);
-
-        channel.writeAndFlush(Unpooled.copiedBuffer("Hello".getBytes())).addListener((ChannelFutureListener) promise->{
+        ZkrpcBootstrap.PENDING_REQUEST.put(1L, completableFuture);
+        //这里直接writeAndFlush写出了一个请求，这个请求的实例就会进入pipeline执行出站的一系列操作
+        //我们可以想象的到，第一个出站程序一定是将ZkrpcRequest-->二进制报文
+        channel.writeAndFlush(zkrpcRequest).addListener((ChannelFutureListener) promise->{
             if (promise.isSuccess()) {
                 completableFuture.completeExceptionally(promise.cause());
             }
@@ -69,6 +88,8 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         return completableFuture.get(10, TimeUnit.SECONDS);
     }
 
+
+
     /**
      * 根据地址获取一个可用的通道
      * @param address channel地址
@@ -76,32 +97,11 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
      */
     private Channel getAvaliableChannel(InetSocketAddress address) {
         //1、尝试从全局缓存获取一个channel
-        Channel channel = YrpcBootstrap.CHANNEL_CACHE.get(address);
+        Channel channel = ZkrpcBootstrap.CHANNEL_CACHE.get(address);
         if (channel == null) {
-            //await方法会阻塞，会等待拦截成功再返回，netty还提供了异步处理的逻辑
-            //sync和await都是阻塞当前线程，获取返回值，(链接的过程是异步的，发生发送数据的过程是异步的)
-            //如果发生了异常，sync会主动在主线程抛出异常.await不会，异常在子线程中处理需要使用future的addListener方法去处理
-//                    channel = NettyBootstrapInitializer.getBootstrap()
-//                            .connect(address).await().channel();
+
             CompletableFuture<Channel> channelFuture = new CompletableFuture<>();
 
-            //addListener是netty中用于异步操作的回调机制，它允许你在异步操作完成后执行特定的逻辑，而无需阻塞当前线程
-            //在这个代码中addListener被用于监听connect方法的结果，具体作用如下
-            //1、异步监听：addListener 会在连接操作完成（成功或失败）时被触发。
-            //2、回调处理：通过传入的 ChannelFutureListener，可以在连接成功时获取 Channel，或者在失败时处理异常。
-            //3、非阻塞：避免使用 sync 或 await 阻塞线程，提升性能。
-
-
-            //connect方法是异步的，它会立即返回一个 ChannelFuture 对象，而不是阻塞等待连接完成。
-            //addListener 也是异步的，它的回调会在连接完成后执行
-            //但代码又用get方法阻塞了当前线程，等待连接完成。
-
-            //promise 是 ChannelFuture 的一个实例，表示 connect() 方法返回的异步操作结果。
-            //说人话！！！！connect就是链式编程的终点,返回的不再是一个bootstrap，而是一个channelfuture！！！！！！！！！！
-            //
-            // 在 Netty 中，connect() 方法返回一个 ChannelFuture，用于跟踪连接操作的状态。
-            // 在 addListener 方法中，promise 是回调函数的参数，Netty 会将 connect()
-            // 返回的 ChannelFuture 作为参数传递给回调函数。因此，promise 代表了 connect() 方法的异步操作结果。
             NettyBootstrapInitializer.getBootstrap().connect(address).addListener(
                     (ChannelFutureListener) promise->{
                         if (promise.isDone()) {
@@ -111,8 +111,6 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                             channelFuture.complete(promise.channel());
                         } else if (!promise.isSuccess()) {
                             channelFuture.completeExceptionally(promise.cause());
-                            //这行代码的作用是将异步操作的结果传递给 CompletableFuture 对象,
-                            // promise.cause() 是获取连接失败的异常信息,进行异常收集，然后抛出在调用get的主线程
                         }
                     });
             try {
@@ -122,7 +120,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 throw new DiscoveryException(e);
             }
             //将获取到的channel放入全局缓存中
-            YrpcBootstrap.CHANNEL_CACHE.put(address, channel);
+            ZkrpcBootstrap.CHANNEL_CACHE.put(address, channel);
         }
         if (channel == null){
             log.error("获取或建立与【{}】的通道时发生了异常",address);

@@ -18,7 +18,7 @@ public class Application {
         // 3、启动引导程序，启动服务提供方
         //   (1) 配置 -- 应用的名称 -- 注册中心
         //   (2) 发布服务
-        YrpcBootstrap.getInstance()
+        ZkrpcBootstrap.getInstance()
                 .application("first-yrpc-provider")
                 //配置注册中心
                 .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))

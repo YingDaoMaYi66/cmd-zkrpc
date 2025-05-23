@@ -1,6 +1,6 @@
 package com.zkrpc.channelHandler.handler;
 
-import com.zkrpc.YrpcBootstrap;
+import com.zkrpc.ZkrpcBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -16,7 +16,7 @@ public class MySimpleChannelInboundHandler extends SimpleChannelInboundHandler<B
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, ByteBuf msg) throws Exception {
         String result = msg.toString(Charset.defaultCharset());
         //从全局的挂起的请求中寻找与之匹配的待处理的cf
-        CompletableFuture<Object> completableFuture = YrpcBootstrap.PENDING_REQUEST.get(1L);
+        CompletableFuture<Object> completableFuture = ZkrpcBootstrap.PENDING_REQUEST.get(1L);
         completableFuture.complete(result);
     }
 }
