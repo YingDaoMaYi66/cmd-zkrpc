@@ -1,7 +1,7 @@
 package com.zkrpc.channelHandler;
 
 import com.zkrpc.channelHandler.handler.MySimpleChannelInboundHandler;
-import com.zkrpc.proxy.handler.ZkrpcMessageEncoder;
+import com.zkrpc.channelHandler.handler.ZkrpcMessageEncoder;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.logging.LogLevel;
@@ -17,7 +17,7 @@ public class ConsumerChannelInitializer extends ChannelInitializer<SocketChannel
                 .addLast(new LoggingHandler(LogLevel.DEBUG))
                 //消息编码器
                 .addLast(new ZkrpcMessageEncoder())
-                //
+                //入站的处理器
                 .addLast(new MySimpleChannelInboundHandler());
     }
 }

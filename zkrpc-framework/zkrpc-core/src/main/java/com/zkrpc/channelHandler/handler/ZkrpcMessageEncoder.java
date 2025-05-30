@@ -1,4 +1,4 @@
-package com.zkrpc.proxy.handler;
+package com.zkrpc.channelHandler.handler;
 
 import com.zkrpc.transport.message.MessageFormatConstant;
 import com.zkrpc.transport.message.RequestPayload;
@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-import java.nio.charset.StandardCharsets;
 
 /**
  * 自定义协议编码器
@@ -19,7 +18,7 @@ import java.nio.charset.StandardCharsets;
  * <pre>
  * 0    1    2    3    4    5    6    7    8    9    10   11   12   13   14  15  16   17   18   19   20   21   22
  * +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
- * |  magic            |ver| head  len|    full_length    | qt | ser|comp|            RequestId                  |
+ * |  magic            |ver| head  len|    full_length    | qt|ser|comp  |            RequestId                  |
  * +--------------------------------------------------------------------------------------------------------------
  * |                                                                                                             |
  * |                                    BODY                                                                     |
@@ -45,28 +44,33 @@ public class ZkrpcMessageEncoder extends MessageToByteEncoder<ZkrpcRequest> {
     @Override
     protected void encode(ChannelHandlerContext channelHandlerContext, ZkrpcRequest zkrpcRequest, ByteBuf byteBuf) throws Exception {
 
-        //3个字节的魔数值
+        //4个字节的魔数值
         byteBuf.writeBytes(MessageFormatConstant.MAGIC);
+        int a = byteBuf.readableBytes();
 
         //1个字节的版本号
         byteBuf.writeByte(MessageFormatConstant.VERSION);
-
+        a = byteBuf.readableBytes();
         //2个字节的头部的长度
         byteBuf.writeShort(MessageFormatConstant.HEADER_LENGTH);
-
+        a = byteBuf.readableBytes();
         //先把这个总长度位置留出来，后面再填充
-        byteBuf.writeShort(byteBuf.writerIndex()+4);
-
+        byteBuf.writeInt(byteBuf.writerIndex()+4);
+        a = byteBuf.readableBytes();
         //3个类型
         byteBuf.writeByte(zkrpcRequest.getRequestType());
         byteBuf.writeByte(zkrpcRequest.getSerializeType());
         byteBuf.writeByte(zkrpcRequest.getCompressType());
+        a = byteBuf.readableBytes();
 
         //8字节的请求id
         byteBuf.writeLong(zkrpcRequest.getRequestId());
 
+         a = byteBuf.readableBytes();
+
         //写入请求体(RequestPayload)
         byte[] body = getBodyBytes(zkrpcRequest.getRequestPayload());
+
         byteBuf.writeBytes(body);
 
         //重新处理报文的总长度
@@ -77,6 +81,7 @@ public class ZkrpcMessageEncoder extends MessageToByteEncoder<ZkrpcRequest> {
         byteBuf.writeInt(MessageFormatConstant.HEADER_LENGTH+body.length);
         //将写指针归位
         byteBuf.writerIndex(writerIndex);
+        int i = byteBuf.readableBytes();
     }
 
     private byte[] getBodyBytes(RequestPayload requestPayload) {
@@ -88,7 +93,6 @@ public class ZkrpcMessageEncoder extends MessageToByteEncoder<ZkrpcRequest> {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ObjectOutputStream outputStream = new ObjectOutputStream(baos);
             outputStream.writeObject(requestPayload);
-
             //压缩
             return baos.toByteArray();
         }catch (IOException e) {

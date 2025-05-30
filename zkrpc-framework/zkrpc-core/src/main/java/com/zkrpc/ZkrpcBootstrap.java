@@ -1,18 +1,18 @@
 package com.zkrpc;
 
+import com.zkrpc.channelHandler.handler.MethodCallHandler;
+import com.zkrpc.channelHandler.handler.ZkMessageDecoder;
 import com.zkrpc.discovery.Registry;
 import com.zkrpc.discovery.RegistryConfig;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.logging.LoggingHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.zookeeper.ZooKeeper;
 import java.net.InetSocketAddress;
-import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -124,15 +124,11 @@ public class ZkrpcBootstrap {
                         @Override
                         protected void initChannel(SocketChannel socketChannel) throws Exception {
                             //是核心，我们要添加很多入站出站的handler
-                            socketChannel.pipeline().addLast(new SimpleChannelInboundHandler<>() {
-                                @Override
-                                protected void channelRead0(ChannelHandlerContext channelHandlerContext, Object msg) throws Exception {
-                                    ByteBuf byteBuf = (ByteBuf) msg;
-                                    log.info("服务端接收到的消息是ByteBuf->:{}", byteBuf.toString(Charset.defaultCharset()));
-                                    //打印结果之后就可以不管了，直接将数据写返回
-                                    channelHandlerContext.channel().writeAndFlush(Unpooled.copiedBuffer("hello world--zkrpc".getBytes()));
-                                }
-                            });
+                            socketChannel.pipeline()
+                                    .addLast(new LoggingHandler())
+                                    .addLast(new ZkMessageDecoder())
+                                    //根据请求进行方法调用
+                                    .addLast(new MethodCallHandler());
                         }
                     });
             //4、绑定端口

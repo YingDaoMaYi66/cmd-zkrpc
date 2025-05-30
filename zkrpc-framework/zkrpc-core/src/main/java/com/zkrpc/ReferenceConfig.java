@@ -37,11 +37,7 @@ public class ReferenceConfig<T> {
      * @return 代理对象
      */
     public T  get() {
-        //此处一定是使用动态代理完成了一些操作
-        //获取当前线程的上下文类加载器，因为动态代理的类需要被加载到jvm当中，类加载器负责这个任务
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        //定义代理接口，指定代理类需要实现的接口数组
-        //重要限制，动态代理只能为接口创建代理，不能为类创建代理
         Class<T>[] classes = new Class[]{interfaceRef};
         InvocationHandler handler = new RpcConsumerInvocationHandler(registry, interfaceRef);
         Object helloProxy = Proxy.newProxyInstance(classLoader, classes, handler);

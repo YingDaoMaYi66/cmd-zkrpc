@@ -80,7 +80,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         //这里直接writeAndFlush写出了一个请求，这个请求的实例就会进入pipeline执行出站的一系列操作
         //我们可以想象的到，第一个出站程序一定是将ZkrpcRequest-->二进制报文
         channel.writeAndFlush(zkrpcRequest).addListener((ChannelFutureListener) promise->{
-            if (promise.isSuccess()) {
+            if (!promise.isSuccess()) {
                 completableFuture.completeExceptionally(promise.cause());
             }
         });
