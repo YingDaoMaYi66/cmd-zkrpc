@@ -1,7 +1,8 @@
 package com.zkrpc;
 
 import com.zkrpc.channelHandler.handler.MethodCallHandler;
-import com.zkrpc.channelHandler.handler.ZkMessageDecoder;
+import com.zkrpc.channelHandler.handler.ZkrpcRequestDecoder;
+import com.zkrpc.channelHandler.handler.ZkrpcResponseEncoder;
 import com.zkrpc.discovery.Registry;
 import com.zkrpc.discovery.RegistryConfig;
 import io.netty.bootstrap.ServerBootstrap;
@@ -24,7 +25,7 @@ public class ZkrpcBootstrap {
     //YrpcBootstrap是一个单例类，使用饿汉式单例模式，我们希望每个应用都只有一个实例
     private static final ZkrpcBootstrap ZKRPC_BOOTSTRAP = new ZkrpcBootstrap();
     //维护一个已经发布且暴露的服务列表Key是Interface的全限定名 value ->ServiceConfig
-    private static final  Map<String,ServiceConfig<?>> SERVICE_LIST = new ConcurrentHashMap<>(16);
+    public static final  Map<String,ServiceConfig<?>> SERVICE_LIST = new ConcurrentHashMap<>(16);
     //定义一些相关的一些基础的配置
     private String appName = "default";
     //维护一个注册中心
@@ -98,7 +99,7 @@ public class ZkrpcBootstrap {
         registry.register(service);
         //1、当服务调用方，通过接口，方法名，具体的方法参数列表发起调用，提供方怎么知道使用哪一个实现
         //(1)new一个 （2）spring beanFactory.getBean(Class) 3、自己维护一个映射关系
-        SERVICE_LIST.put(service.getInterface().toString(),service);
+        SERVICE_LIST.put(service.getInterface().getName(), service);
         return this;
     }
     public ZkrpcBootstrap publish(List<ServiceConfig<?>> services) {
@@ -125,10 +126,14 @@ public class ZkrpcBootstrap {
                         protected void initChannel(SocketChannel socketChannel) throws Exception {
                             //是核心，我们要添加很多入站出站的handler
                             socketChannel.pipeline()
+                                    //日志处理器，打印请求和响应的日志
                                     .addLast(new LoggingHandler())
-                                    .addLast(new ZkMessageDecoder())
+                                    //自定义的请求编码器
+                                    .addLast(new ZkrpcRequestDecoder())
                                     //根据请求进行方法调用
-                                    .addLast(new MethodCallHandler());
+                                    .addLast(new MethodCallHandler())
+                                    //自定义的响应编码器
+                                    .addLast(new ZkrpcResponseEncoder());
                         }
                     });
             //4、绑定端口
@@ -151,9 +156,6 @@ public class ZkrpcBootstrap {
      * -----------------------------------服务调用方的相关api-----------------------------------------------------------------------------------------
      */
     public ZkrpcBootstrap reference(ReferenceConfig<?> reference) {
-        //债这个方法中我们是否能拿到相关配置项(包括注册中心)
-        //配置Reference，将来调用get方法时，方便生成代理对象
-        //1、reference需要一个注册中心
         reference.setRegistry(registry);
         return this;
     }

@@ -3,11 +3,11 @@ package com.zkrpc.proxy.handler;
 import com.zkrpc.NettyBootstrapInitializer;
 import com.zkrpc.ZkrpcBootstrap;
 import com.zkrpc.discovery.Registry;
+import com.zkrpc.enumeration.RequestType;
 import com.zkrpc.exceptions.DiscoveryException;
 import com.zkrpc.exceptions.NetworkException;
 import com.zkrpc.transport.message.RequestPayload;
 import com.zkrpc.transport.message.ZkrpcRequest;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +54,6 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
             log.debug("获取了和【{}】建立的；链接通道，准备发送数据",address);
         }
 
-
         /*
          * 3、封装报文，然后将封装好的报文写到channel中
          */
@@ -69,7 +68,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         ZkrpcRequest zkrpcRequest = ZkrpcRequest.builder()
                 .requestId(1L)
                 .compressType((byte) 1)
-                .requestType((byte) 1)
+                .requestType(RequestType.REQUEST.getId())
                 .serializeType((byte) 1)
                 .requestPayload(requestPayload)
                 .build();

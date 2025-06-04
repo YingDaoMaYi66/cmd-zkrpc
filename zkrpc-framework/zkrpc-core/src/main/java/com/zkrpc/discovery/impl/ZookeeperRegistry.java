@@ -63,7 +63,7 @@ public class ZookeeperRegistry extends AbstractRegistry {
             return new InetSocketAddress(ip, port);
         }).toList();
         if (inetSocketAddresses.isEmpty()) {
-            throw new DiscoveryException("为发现任何可用的服务主机.");
+            throw new DiscoveryException("未发现任何可用的服务主机.");
         }
         //todo q:我们每次调用相关方法的时候都需要去注册中心去拉取相关列表吗 本地缓存 + watcher
         //       我们如何合理的选择一个可用的服务，而不是只获取到第一个  负载均衡策略

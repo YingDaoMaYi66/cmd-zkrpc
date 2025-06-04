@@ -18,9 +18,10 @@ public class Application {
                 .application("first-yrpc-consumer")
                 .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
                 .reference(reference);
+
         //获取一个代理对象
         HelloZkrpc helloZkrpc = reference.get();
-        String sayHi = helloZkrpc.sayHi("你好");
+        String sayHi = helloZkrpc.sayHi("你好zkrpc");
         log.info("sayHi:{}", sayHi);
     }
 }

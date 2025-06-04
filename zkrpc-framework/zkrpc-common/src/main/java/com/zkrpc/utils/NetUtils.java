@@ -9,6 +9,7 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
 @Slf4j
+//获取网卡的局域网地址
 public class NetUtils {
     public static String getIp(){
         //获取所有的网卡信息

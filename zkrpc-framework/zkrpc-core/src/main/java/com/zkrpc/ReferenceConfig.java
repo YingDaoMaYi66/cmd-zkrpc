@@ -1,20 +1,11 @@
 package com.zkrpc;
 
 import com.zkrpc.discovery.Registry;
-import com.zkrpc.exceptions.NetworkException;
 import com.zkrpc.proxy.handler.RpcConsumerInvocationHandler;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import lombok.extern.slf4j.Slf4j;
-
 import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.net.InetSocketAddress;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+
 
 @Slf4j
 public class ReferenceConfig<T> {
@@ -25,6 +16,8 @@ public class ReferenceConfig<T> {
     public Class<T> getInterface() {
         return interfaceRef;
     }
+
+    //设置需要代理的接口
     public void setInterface(Class<T> interfaceRef) {
         this.interfaceRef = interfaceRef;
     }

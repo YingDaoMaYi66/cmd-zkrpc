@@ -40,52 +40,62 @@ import java.io.ObjectOutputStream;
  */
 //MessageToByteEncoder<ZkrpcRequest>是一个Netty的编码器，用于将ZkrpcRequest对象编码为字节流,继承于出站Handler
 @Slf4j
-public class ZkrpcMessageEncoder extends MessageToByteEncoder<ZkrpcRequest> {
+public class ZkrpcRequestEncoder extends MessageToByteEncoder<ZkrpcRequest> {
     @Override
     protected void encode(ChannelHandlerContext channelHandlerContext, ZkrpcRequest zkrpcRequest, ByteBuf byteBuf) throws Exception {
 
         //4个字节的魔数值
         byteBuf.writeBytes(MessageFormatConstant.MAGIC);
-        int a = byteBuf.readableBytes();
 
         //1个字节的版本号
         byteBuf.writeByte(MessageFormatConstant.VERSION);
-        a = byteBuf.readableBytes();
+
         //2个字节的头部的长度
         byteBuf.writeShort(MessageFormatConstant.HEADER_LENGTH);
-        a = byteBuf.readableBytes();
+
         //先把这个总长度位置留出来，后面再填充
-        byteBuf.writeInt(byteBuf.writerIndex()+4);
-        a = byteBuf.readableBytes();
+        byteBuf.writeInt(byteBuf.writerIndex()+MessageFormatConstant.FULL_FIELD_LENGTH);
+
         //3个类型
         byteBuf.writeByte(zkrpcRequest.getRequestType());
         byteBuf.writeByte(zkrpcRequest.getSerializeType());
         byteBuf.writeByte(zkrpcRequest.getCompressType());
-        a = byteBuf.readableBytes();
 
         //8字节的请求id
         byteBuf.writeLong(zkrpcRequest.getRequestId());
 
-         a = byteBuf.readableBytes();
 
         //写入请求体(RequestPayload)
         byte[] body = getBodyBytes(zkrpcRequest.getRequestPayload());
+        if(body != null){
+            byteBuf.writeBytes(body);
+        }
+        int bodyLength = body == null ? 0 : body.length;
 
-        byteBuf.writeBytes(body);
 
         //重新处理报文的总长度
         //先保存当前的写指针的位置
         int writerIndex = byteBuf.writerIndex();
         //将写指针的位置移动到总长度的位置上
-        byteBuf.writerIndex(7);
-        byteBuf.writeInt(MessageFormatConstant.HEADER_LENGTH+body.length);
+        byteBuf.writerIndex(MessageFormatConstant.HEADER_FIELD_LENGTH
+                +MessageFormatConstant.MAGIC.length+MessageFormatConstant.VERSION_LENGTH
+        );
+        byteBuf.writeInt(MessageFormatConstant.HEADER_LENGTH+bodyLength);
+
         //将写指针归位
         byteBuf.writerIndex(writerIndex);
-        int i = byteBuf.readableBytes();
+
+        //打印日志
+        if(log.isDebugEnabled()){
+            log.debug("请求【{}】已经完成报文的编码",zkrpcRequest.getRequestId());
+        }
     }
 
     private byte[] getBodyBytes(RequestPayload requestPayload) {
         //todo 针对不同的消息类型需要做不同的处理，比如说心跳的请求 没有payload
+        if (requestPayload == null) {
+            return null;
+        }
 
         //希望可以通过一些设计模式，面向对象的编程，让我们可以配置修改序列化和压缩的方式
         //对象怎么变成一个字节数组 序列化 压缩

@@ -1,13 +1,10 @@
 package com.zkrpc.channelHandler.handler;
-
 import com.zkrpc.transport.message.MessageFormatConstant;
-import com.zkrpc.transport.message.RequestPayload;
-import com.zkrpc.transport.message.ZkrpcRequest;
+import com.zkrpc.transport.message.ZkrpcResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import lombok.extern.slf4j.Slf4j;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -18,7 +15,7 @@ import java.io.ObjectInputStream;
  * <pre>
  *  * 0    1    2    3    4    5    6    7    8    9    10   11   12   13   14  15  16   17   18   19   20   21   22
  *  * +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
- *  * |  magic            |ver| head  len|    full_length    | qt | ser|comp|            RequestId                  |
+ *  * |  magic            |ver| head  len|    full_length    |code| ser|comp|            RequestId                  |
  *  * +--------------------------------------------------------------------------------------------------------------
  *  * |                                                                                                             |
  *  * |                                    BODY                                                                     |
@@ -27,8 +24,8 @@ import java.io.ObjectInputStream;
  * 基于长度字段的帧解码器
  */
 @Slf4j
-public class ZkMessageDecoder extends LengthFieldBasedFrameDecoder {
-    public ZkMessageDecoder() {
+public class ZkrpcResponseDecoder extends LengthFieldBasedFrameDecoder {
+    public ZkrpcResponseDecoder() {
         super(
                 //找到当前报文的总长度，截取报文，截取出来的报文我们可以去进行解析
 
@@ -71,8 +68,8 @@ public class ZkMessageDecoder extends LengthFieldBasedFrameDecoder {
         short headerLength = byteBuf.readShort();
         //4、解析总长度
         int fullLength = byteBuf.readInt();
-        //5、请求类型 todo 判断是不是心跳检测
-        byte requestType = byteBuf.readByte();
+        //5、请求类型
+        byte responseCode = byteBuf.readByte();
         //6、序列化类型
         byte serializeType = byteBuf.readByte();
         //7、压缩类型
@@ -80,20 +77,19 @@ public class ZkMessageDecoder extends LengthFieldBasedFrameDecoder {
         //8、请求id
         long requestId = byteBuf.readLong();
         //我们需要封装
-        ZkrpcRequest zkrpcRequest = new ZkrpcRequest();
-        zkrpcRequest.setRequestType(requestType);
-        zkrpcRequest.setCompressType(compressType);
-        zkrpcRequest.setSerializeType(serializeType);
-        //todo 心跳请求没有负载，此处可以判断并直接返回
-        if (requestType == 2){
-            return zkrpcRequest;
-        }
+        ZkrpcResponse zkrpcResponse = new ZkrpcResponse();
+        zkrpcResponse.setCode(responseCode);
+        zkrpcResponse.setCompressType(compressType);
+        zkrpcResponse.setSerializeType(serializeType);
+        zkrpcResponse.setRequestId(requestId);
+        // todo 心跳请求没有负载，此处可以判断并直接返回
+//        if (requestType == RequestType.HEART_BEAT.getId()){
+//            return zkrpcRequest;
+//        }
 
-        int payloadLength = fullLength - headerLength;
-        byte[] payload = new byte[payloadLength];
-        int readableBytes = byteBuf.readableBytes();
+        int bodyLength = fullLength - headerLength;
+        byte[] payload = new byte[bodyLength];
         byteBuf.readBytes(payload);
-        log.debug("请求的负载长度为【{}】，实际读取的字节数为",payloadLength,readableBytes);
         //有了字节数组后就可以解压缩，反序列化
 
         //todo 解压缩
@@ -102,11 +98,15 @@ public class ZkMessageDecoder extends LengthFieldBasedFrameDecoder {
         try(ByteArrayInputStream bis = new ByteArrayInputStream(payload);
             ObjectInputStream ois = new ObjectInputStream(bis)
         ) {
-            RequestPayload requestPayload = (RequestPayload) ois.readObject();
-            zkrpcRequest.setRequestPayload(requestPayload);
+            Object body = ois.readObject();
+            zkrpcResponse.setBody(body);
         }catch(IOException|ClassNotFoundException e){
             log.error("请求【{}】反序列化时发生了异常",requestId,e);
         }
-        return zkrpcRequest;
+
+        if(log.isDebugEnabled()){
+            log.debug("响应【{}】已经在调用端端完成解码工作", zkrpcResponse.getRequestId());
+        }
+        return zkrpcResponse;
     }
 }
