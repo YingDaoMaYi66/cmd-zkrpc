@@ -5,7 +5,7 @@ import com.zkrpc.discovery.RegistryConfig;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class Application {
+public class ConsumerApplication {
     public static void main(String[] args) {
         //想尽一些办法获取代理对象,使用ReferenceConfig进行封装
         //reference一定用生成代理的方法模版
@@ -17,6 +17,7 @@ public class Application {
         ZkrpcBootstrap.getInstance()
                 .application("first-yrpc-consumer")
                 .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
+                .serialize("hessian")
                 .reference(reference);
 
         //获取一个代理对象

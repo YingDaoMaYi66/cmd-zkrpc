@@ -1,4 +1,6 @@
 package com.zkrpc.channelHandler.handler;
+import com.zkrpc.serialize.Serializer;
+import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.MessageFormatConstant;
 import com.zkrpc.transport.message.ZkrpcResponse;
 import io.netty.buffer.ByteBuf;
@@ -8,7 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-
+/*
+ * consumer的端的解码器，用来解码provider端发送过来的响应
+ */
 /**
  *
  *
@@ -95,14 +99,10 @@ public class ZkrpcResponseDecoder extends LengthFieldBasedFrameDecoder {
         //todo 解压缩
 
         //todo 反序列化
-        try(ByteArrayInputStream bis = new ByteArrayInputStream(payload);
-            ObjectInputStream ois = new ObjectInputStream(bis)
-        ) {
-            Object body = ois.readObject();
-            zkrpcResponse.setBody(body);
-        }catch(IOException|ClassNotFoundException e){
-            log.error("请求【{}】反序列化时发生了异常",requestId,e);
-        }
+        Serializer serializer = SerializerFactory
+                .getSerialzer(zkrpcResponse.getSerializeType()).getSerializer();
+        Object body = serializer.deserialize(payload, Object.class);
+        zkrpcResponse.setBody(body);
 
         if(log.isDebugEnabled()){
             log.debug("响应【{}】已经在调用端端完成解码工作", zkrpcResponse.getRequestId());

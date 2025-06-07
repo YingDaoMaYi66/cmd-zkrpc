@@ -12,6 +12,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+
+/*
+ * 这个类是用来处理服务端接收到的请求，并调用相关接口,封装响应结果
+ */
 @Slf4j
 public class MethodCallHandler extends SimpleChannelInboundHandler<ZkrpcRequest> {
     @Override

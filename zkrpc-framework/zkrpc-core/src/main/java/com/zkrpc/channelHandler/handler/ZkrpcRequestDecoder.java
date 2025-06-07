@@ -1,6 +1,8 @@
 package com.zkrpc.channelHandler.handler;
 
 import com.zkrpc.enumeration.RequestType;
+import com.zkrpc.serialize.Serializer;
+import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.MessageFormatConstant;
 import com.zkrpc.transport.message.RequestPayload;
 import com.zkrpc.transport.message.ZkrpcRequest;
@@ -8,10 +10,9 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import lombok.extern.slf4j.Slf4j;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
+/*
+ * provider的端的解码器，用来解码客户端发送过来的请求
+ */
 
 /**
  *
@@ -95,21 +96,16 @@ public class ZkrpcRequestDecoder extends LengthFieldBasedFrameDecoder {
         byte[] payload = new byte[payloadLength];
         int readableBytes = byteBuf.readableBytes();
         byteBuf.readBytes(payload);
-        log.debug("请求的负载长度为【{}】，实际读取的字节数为",payloadLength,readableBytes);
+        log.debug("请求的负载长度为【{}】，实际读取的字节数为【{}】",payloadLength,readableBytes);
         //有了字节数组后就可以解压缩，反序列化
 
         //todo 解压缩
 
-        //todo 反序列化
-        try(ByteArrayInputStream bis = new ByteArrayInputStream(payload);
-            ObjectInputStream ois = new ObjectInputStream(bis)
-        ) {
-            RequestPayload requestPayload = (RequestPayload) ois.readObject();
-            zkrpcRequest.setRequestPayload(requestPayload);
-        }catch(IOException|ClassNotFoundException e){
-            log.error("请求【{}】反序列化时发生了异常",requestId,e);
-        }
-
+        //反序列化
+        // 1-->反序列化器
+        Serializer serialzer = SerializerFactory.getSerialzer(serializeType).getSerializer();
+        RequestPayload requestPayload = serialzer.deserialize(payload, RequestPayload.class);
+        zkrpcRequest.setRequestPayload(requestPayload);
         if(log.isDebugEnabled()){
             log.debug("请求【{}】已经在服务端完成解码工作",zkrpcRequest.getRequestId());
         }

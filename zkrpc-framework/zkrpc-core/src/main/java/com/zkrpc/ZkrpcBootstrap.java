@@ -33,6 +33,10 @@ public class ZkrpcBootstrap {
     //维护一个协议的配置
     private ProtocolConfig protocolConfig;
     private final int port = 8088;
+    //todo 雪花算法的配置参数是要在配置文件进行读取的
+    public static final IdGenerator ID_GENERATOR = new IdGenerator(1L,2L);
+    //序列化方式默认配置项
+    public static String SERIALIZE_TYPE = "jdk";
     //维护一个zookeeper实例
     private ZooKeeper  zookeeper;
     //注册中心
@@ -157,6 +161,18 @@ public class ZkrpcBootstrap {
      */
     public ZkrpcBootstrap reference(ReferenceConfig<?> reference) {
         reference.setRegistry(registry);
+        return this;
+    }
+
+    /**
+     * 配置序列化的方式
+     * @param serializeType 序列化的方式
+     */
+    public ZkrpcBootstrap serialize(String serializeType) {
+        SERIALIZE_TYPE = serializeType;
+        if (log.isDebugEnabled()) {
+            log.debug("我们配置了使用的序列化的方式为【{}】.",serializeType);
+        }
         return this;
     }
 }

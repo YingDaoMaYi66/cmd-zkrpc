@@ -5,9 +5,9 @@ import com.zkrpc.impl.HelloZkrpcImpl;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class Application {
+public class ProviderApplication {
     public static void main(String[] args) {
-        log.debug("Application start");
+        log.debug("ProviderApplication start");
 
         //服务提供方需要注册服务，启动服务
         // 1、封装要发布的服务

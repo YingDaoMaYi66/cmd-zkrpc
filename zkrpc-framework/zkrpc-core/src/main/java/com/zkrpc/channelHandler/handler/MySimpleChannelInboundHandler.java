@@ -8,8 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.CompletableFuture;
 
-/**
- * 这是一个用来测试的一个类
+/*
+ * 这个类是用来进行异步操作的
+ * 当服务提供方返回结果时，Netty会将结果传递给这个类，这个类会从全局的挂起请求中找到对应的CompletableFuture，并将结果设置到这个CompletableFuture中，
  */
 @Slf4j
 public class MySimpleChannelInboundHandler extends SimpleChannelInboundHandler<ZkrpcResponse> {

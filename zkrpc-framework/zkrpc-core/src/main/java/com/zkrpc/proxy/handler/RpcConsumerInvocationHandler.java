@@ -1,11 +1,11 @@
 package com.zkrpc.proxy.handler;
-
 import com.zkrpc.NettyBootstrapInitializer;
 import com.zkrpc.ZkrpcBootstrap;
 import com.zkrpc.discovery.Registry;
 import com.zkrpc.enumeration.RequestType;
 import com.zkrpc.exceptions.DiscoveryException;
 import com.zkrpc.exceptions.NetworkException;
+import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.RequestPayload;
 import com.zkrpc.transport.message.ZkrpcRequest;
 import io.netty.channel.Channel;
@@ -64,12 +64,13 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 .parametersValue(args)
                 .returnType(method.getReturnType())
                 .build();
+
         //todo 需要对请求id和各种类型做处理
         ZkrpcRequest zkrpcRequest = ZkrpcRequest.builder()
-                .requestId(1L)
-                .compressType((byte) 1)
+                .requestId(ZkrpcBootstrap.ID_GENERATOR.getId())
+                .compressType((SerializerFactory.getSerialzer(ZkrpcBootstrap.SERIALIZE_TYPE).getCode()))
                 .requestType(RequestType.REQUEST.getId())
-                .serializeType((byte) 1)
+                .serializeType(SerializerFactory.getSerialzer(ZkrpcBootstrap.SERIALIZE_TYPE).getCode())
                 .requestPayload(requestPayload)
                 .build();
 

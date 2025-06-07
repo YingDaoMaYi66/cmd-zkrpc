@@ -1,16 +1,17 @@
 package com.zkrpc.channelHandler.handler;
 
+import com.zkrpc.ZkrpcBootstrap;
+import com.zkrpc.serialize.Serializer;
+import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.MessageFormatConstant;
-import com.zkrpc.transport.message.RequestPayload;
 import com.zkrpc.transport.message.ZkrpcRequest;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 import lombok.extern.slf4j.Slf4j;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
+/*
+ * comsumer的自定义协议编码器，将请求编码
+ */
 
 /**
  * 自定义协议编码器
@@ -66,7 +67,12 @@ public class ZkrpcRequestEncoder extends MessageToByteEncoder<ZkrpcRequest> {
 
 
         //写入请求体(RequestPayload)
-        byte[] body = getBodyBytes(zkrpcRequest.getRequestPayload());
+        //1、根据配置的序列化方式进行序列化
+        //实现序列化 1、工具类 耦合性很高 如果以后我想替换序列化的方式，很难
+        Serializer serializer = SerializerFactory.getSerialzer(ZkrpcBootstrap.SERIALIZE_TYPE).getSerializer();
+        byte[] body = serializer.serialize(zkrpcRequest.getRequestPayload());
+
+        //2、根据配置的压缩方式进行压缩
         if(body != null){
             byteBuf.writeBytes(body);
         }
@@ -91,24 +97,5 @@ public class ZkrpcRequestEncoder extends MessageToByteEncoder<ZkrpcRequest> {
         }
     }
 
-    private byte[] getBodyBytes(RequestPayload requestPayload) {
-        //todo 针对不同的消息类型需要做不同的处理，比如说心跳的请求 没有payload
-        if (requestPayload == null) {
-            return null;
-        }
-
-        //希望可以通过一些设计模式，面向对象的编程，让我们可以配置修改序列化和压缩的方式
-        //对象怎么变成一个字节数组 序列化 压缩
-        try{
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ObjectOutputStream outputStream = new ObjectOutputStream(baos);
-            outputStream.writeObject(requestPayload);
-            //压缩
-            return baos.toByteArray();
-        }catch (IOException e) {
-            log.error("序列化时出现异常");
-            throw new RuntimeException(e);
-        }
-    }
 
 }

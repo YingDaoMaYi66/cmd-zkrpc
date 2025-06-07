@@ -30,6 +30,7 @@
         <logback.version>1.4.8</logback.version>
         <fastjson2.version>2.0.34</fastjson2.version>
         <lombok.version>1.18.26</lombok.version>
+        <hessian.version>4.0.66</hessian.version>
     </properties>
 
 
@@ -48,6 +49,11 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
+        </dependency>
+        <dependency>
+                <groupId>com.caucho</groupId>
+                <artifactId>hessian</artifactId>
+                <version>4.0.66</version>
         </dependency>
     </dependencies>
 
@@ -73,28 +79,43 @@
                 <artifactId>zookeeper</artifactId>
                 <version>${zookeeper.version}</version>
             </dependency>
-<!--            日志管理-->
+            <!--日志管理-->
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
                 <version>${logback.version}</version>
             </dependency>
-<!--            序列化-->
+            <!--序列化-->
             <dependency>
                 <groupId>com.alibaba.fastjson2</groupId>
                 <artifactId>fastjson2</artifactId>
                 <version>${fastjson2.version}</version>
             </dependency>
+            <!-- https://mvnrepository.com/artifact/com.caucho/hessian -->
+            <dependency>
+                <groupId>com.caucho</groupId>
+                <artifactId>hessian</artifactId>
+                <version>4.0.66</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
                 <version>${commons-lang3.version}</version>
             </dependency>
+            <!-- https://mvnrepository.com/artifact/io/mycat -->
             <dependency>
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
                 <version>${lombok.version}</version>
             </dependency>
+            <!--hession-->
+            <dependency>
+                <groupId>com.caucho</groupId>
+                <artifactId>hessian</artifactId>
+                <version>${hessian.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 </project>
