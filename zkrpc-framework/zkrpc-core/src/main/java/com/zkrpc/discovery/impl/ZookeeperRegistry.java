@@ -49,6 +49,11 @@ public class ZookeeperRegistry extends AbstractRegistry {
         }
     }
 
+    /**
+     * 注册中心的核心目的是什么？拉取合适的服务列表
+     * @param name 服务的名称
+     * @return 服务列表
+     */
     @Override
     public InetSocketAddress lookup(String name) {
         //1、找到服务对应的节点
@@ -65,8 +70,6 @@ public class ZookeeperRegistry extends AbstractRegistry {
         if (inetSocketAddresses.isEmpty()) {
             throw new DiscoveryException("未发现任何可用的服务主机.");
         }
-        //todo q:我们每次调用相关方法的时候都需要去注册中心去拉取相关列表吗 本地缓存 + watcher
-        //       我们如何合理的选择一个可用的服务，而不是只获取到第一个  负载均衡策略
         return inetSocketAddresses.get(0);
     }
 }

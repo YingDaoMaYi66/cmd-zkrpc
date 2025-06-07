@@ -1,12 +1,10 @@
 package com.zkrpc.serialize;
-
-
 import com.zkrpc.serialize.impl.HessianSeriazlizer;
 import com.zkrpc.serialize.impl.JdkSerizlizer;
 import com.zkrpc.serialize.impl.JsonSerializer;
-
+import lombok.extern.slf4j.Slf4j;
 import java.util.concurrent.ConcurrentHashMap;
-
+@Slf4j
 public class SerializerFactory {
 
     private final static ConcurrentHashMap<String,SerializerWrapper> SERIALIZER_CACHE = new ConcurrentHashMap<>(8);
@@ -35,10 +33,26 @@ public class SerializerFactory {
      * @return 一个包装类
      */
     public static SerializerWrapper getSerialzer(String serializeType) {
-      return SERIALIZER_CACHE.get(serializeType);
+        SerializerWrapper serializerWrapper = SERIALIZER_CACHE.get(serializeType);
+        if (serializerWrapper == null) {
+            if (log.isDebugEnabled()) {
+                log.error("未找到您配置的压缩策略.默认选用jdk的序列化方式【{}】",serializeType);
+                return SERIALIZER_CACHE.get("jdk");
+            }
+            return SERIALIZER_CACHE.get("jdk");
+        }
+        return SERIALIZER_CACHE.get(serializeType);
     }
 
     public static SerializerWrapper getSerialzer(Byte serializeCode) {
+        SerializerWrapper serializerWrapper = SERIALIZER_CACHE_CODE.get(serializeCode);
+        if (serializerWrapper == null) {
+            if (log.isDebugEnabled()) {
+                log.error("未找到您配置的压缩策略.默认选用jdk的序列化方式【{}】",serializeCode);
+                return SERIALIZER_CACHE.get("jdk");
+            }
+            return SERIALIZER_CACHE.get("jdk");
+        }
       return SERIALIZER_CACHE_CODE.get(serializeCode);
     }
 

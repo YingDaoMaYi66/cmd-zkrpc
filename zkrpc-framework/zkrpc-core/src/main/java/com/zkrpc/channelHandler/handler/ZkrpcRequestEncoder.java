@@ -1,6 +1,8 @@
 package com.zkrpc.channelHandler.handler;
 
 import com.zkrpc.ZkrpcBootstrap;
+import com.zkrpc.channelHandler.compress.Compressor;
+import com.zkrpc.channelHandler.compress.CompressorFactory;
 import com.zkrpc.serialize.Serializer;
 import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.MessageFormatConstant;
@@ -69,10 +71,12 @@ public class ZkrpcRequestEncoder extends MessageToByteEncoder<ZkrpcRequest> {
         //写入请求体(RequestPayload)
         //1、根据配置的序列化方式进行序列化
         //实现序列化 1、工具类 耦合性很高 如果以后我想替换序列化的方式，很难
-        Serializer serializer = SerializerFactory.getSerialzer(ZkrpcBootstrap.SERIALIZE_TYPE).getSerializer();
+        Serializer serializer = SerializerFactory.getSerialzer(zkrpcRequest.getSerializeType()).getSerializer();
         byte[] body = serializer.serialize(zkrpcRequest.getRequestPayload());
 
         //2、根据配置的压缩方式进行压缩
+        Compressor compressor = CompressorFactory.getCompressor(zkrpcRequest.getCompressType()).getCompressor();
+        body = compressor.compress(body);
         if(body != null){
             byteBuf.writeBytes(body);
         }

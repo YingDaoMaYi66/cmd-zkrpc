@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class ZkrpcBootstrap {
 
+
     //YrpcBootstrap是一个单例类，使用饿汉式单例模式，我们希望每个应用都只有一个实例
     private static final ZkrpcBootstrap ZKRPC_BOOTSTRAP = new ZkrpcBootstrap();
     //维护一个已经发布且暴露的服务列表Key是Interface的全限定名 value ->ServiceConfig
@@ -37,6 +38,8 @@ public class ZkrpcBootstrap {
     public static final IdGenerator ID_GENERATOR = new IdGenerator(1L,2L);
     //序列化方式默认配置项
     public static String SERIALIZE_TYPE = "jdk";
+    //压缩方式
+    public static  String COMPRESS_TYPE = "gzip";
     //维护一个zookeeper实例
     private ZooKeeper  zookeeper;
     //注册中心
@@ -172,6 +175,14 @@ public class ZkrpcBootstrap {
         SERIALIZE_TYPE = serializeType;
         if (log.isDebugEnabled()) {
             log.debug("我们配置了使用的序列化的方式为【{}】.",serializeType);
+        }
+        return this;
+    }
+
+    public ZkrpcBootstrap compress(String compressType) {
+        COMPRESS_TYPE = compressType;
+        if (log.isDebugEnabled()) {
+            log.debug("我们配置了使用的压缩算法的方式为【{}】.",compressType);
         }
         return this;
     }

@@ -1,5 +1,7 @@
 package com.zkrpc.channelHandler.handler;
 
+import com.zkrpc.channelHandler.compress.Compressor;
+import com.zkrpc.channelHandler.compress.CompressorFactory;
 import com.zkrpc.enumeration.RequestType;
 import com.zkrpc.serialize.Serializer;
 import com.zkrpc.serialize.SerializerFactory;
@@ -99,8 +101,9 @@ public class ZkrpcRequestDecoder extends LengthFieldBasedFrameDecoder {
         log.debug("请求的负载长度为【{}】，实际读取的字节数为【{}】",payloadLength,readableBytes);
         //有了字节数组后就可以解压缩，反序列化
 
-        //todo 解压缩
-
+        //解压缩
+        Compressor compressor = CompressorFactory.getCompressor(compressType).getCompressor();
+        payload = compressor.decompress(payload);
         //反序列化
         // 1-->反序列化器
         Serializer serialzer = SerializerFactory.getSerialzer(serializeType).getSerializer();
