@@ -1,21 +1,15 @@
-package com.zkrpc.channelHandler.handler;
+package com.zkrpc.channelhandler.handler;
 
-import com.zkrpc.channelHandler.compress.Compressor;
-import com.zkrpc.channelHandler.compress.CompressorFactory;
+import com.zkrpc.channelhandler.compress.Compressor;
+import com.zkrpc.channelhandler.compress.CompressorFactory;
 import com.zkrpc.serialize.Serializer;
 import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.MessageFormatConstant;
-import com.zkrpc.transport.message.RequestPayload;
-import com.zkrpc.transport.message.ZkrpcRequest;
 import com.zkrpc.transport.message.ZkrpcResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 import lombok.extern.slf4j.Slf4j;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 /*
  * provider的自定义协议编码器，将响应的内容编码
  */
@@ -71,15 +65,22 @@ public class ZkrpcResponseEncoder extends MessageToByteEncoder<ZkrpcResponse> {
         //8字节的请求id
         byteBuf.writeLong(zkrpcResponse.getRequestId());
 
+        //8字节的时间戳
+        byteBuf.writeLong(zkrpcResponse.getTimeStamp());
+
 
         //写入请求体(RequestPayload)
         //需要对响应做序列化
-        Serializer serializer = SerializerFactory
-                .getSerialzer(zkrpcResponse.getSerializeType()).getSerializer();
-        byte[] body = serializer.serialize(zkrpcResponse.getBody());
-        //todo 压缩
-        Compressor compressor = CompressorFactory.getCompressor(zkrpcResponse.getCompressType()).getCompressor();
-        body = compressor.compress(body);
+        byte[] body = null;
+        if(zkrpcResponse.getBody() != null) {
+            Serializer serializer = SerializerFactory
+                    .getSerialzer(zkrpcResponse.getSerializeType()).getSerializer();
+            body = serializer.serialize(zkrpcResponse.getBody());
+            //todo 压缩
+            Compressor compressor = CompressorFactory.getCompressor(zkrpcResponse.getCompressType()).getCompressor();
+            body = compressor.compress(body);
+
+        }
         if(body != null){
             byteBuf.writeBytes(body);
         }

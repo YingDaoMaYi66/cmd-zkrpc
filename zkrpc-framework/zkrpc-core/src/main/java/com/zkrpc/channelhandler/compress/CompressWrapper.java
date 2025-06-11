@@ -1,6 +1,5 @@
-package com.zkrpc.channelHandler.compress;
+package com.zkrpc.channelhandler.compress;
 
-import com.zkrpc.serialize.Serializer;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

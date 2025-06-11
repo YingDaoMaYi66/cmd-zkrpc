@@ -1,7 +1,7 @@
 package com.zkrpc.proxy.handler;
 import com.zkrpc.NettyBootstrapInitializer;
 import com.zkrpc.ZkrpcBootstrap;
-import com.zkrpc.channelHandler.compress.CompressorFactory;
+import com.zkrpc.channelhandler.compress.CompressorFactory;
 import com.zkrpc.discovery.Registry;
 import com.zkrpc.enumeration.RequestType;
 import com.zkrpc.exceptions.DiscoveryException;
@@ -9,7 +9,6 @@ import com.zkrpc.exceptions.NetworkException;
 import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.RequestPayload;
 import com.zkrpc.transport.message.ZkrpcRequest;
-import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -31,7 +31,6 @@ import java.util.concurrent.TimeoutException;
  */
 @Slf4j
 public class RpcConsumerInvocationHandler implements InvocationHandler {
-    //此处需要一个注册中心，和一个接口
     private final Registry registry;
     private final Class<?> interfaceRef;
 
@@ -42,22 +41,8 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        //1、发现服务，从注册中心，寻找一个可用的服务
-        // 传入服务的名字,返回一个ip+端口 InetSocketAddress里面封装了ip和端口
-        InetSocketAddress address = registry.lookup(interfaceRef.getName());
-        if (log.isDebugEnabled()){
-            log.debug("服务调用方,返现了服务【{}】的可用主机【{}】",
-                    interfaceRef.getName(), address);
-        }
-
-        //2尝试从全局的缓存中获取一个channel！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
-        Channel channel = getAvaliableChannel(address);
-        if(log.isDebugEnabled()){
-            log.debug("获取了和【{}】建立的；链接通道，准备发送数据",address);
-        }
-
         /*
-         * 3、封装报文，然后将封装好的报文写到channel中
+         * 1、封装报文，然后将封装好的报文写到channel中
          */
         RequestPayload requestPayload = RequestPayload.builder()
                 .interfaceName(interfaceRef.getName())
@@ -67,18 +52,33 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 .returnType(method.getReturnType())
                 .build();
 
-        //todo 需要对请求id和各种类型做处理
         ZkrpcRequest zkrpcRequest = ZkrpcRequest.builder()
                 .requestId(ZkrpcBootstrap.ID_GENERATOR.getId())
                 .compressType(CompressorFactory.getCompressor(ZkrpcBootstrap.COMPRESS_TYPE).getCode())
                 .requestType(RequestType.REQUEST.getId())
                 .serializeType(SerializerFactory.getSerialzer(ZkrpcBootstrap.SERIALIZE_TYPE).getCode())
+                .timeStamp(new Date().getTime())
                 .requestPayload(requestPayload)
                 .build();
+        //将请求存入本地线程，需要在合适的时候调用remove
+        ZkrpcBootstrap.REQUEST_THREAD_LOACL.set(zkrpcRequest);
 
-        //4、写出报文
+        //2、发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
+        InetSocketAddress address = ZkrpcBootstrap.LOAD_BALANCER.selectServiceAddress(interfaceRef.getName());
+        if (log.isDebugEnabled()){
+            log.debug("服务调用方,返现了服务【{}】的可用主机【{}】",
+                    interfaceRef.getName(), address);
+        }
+
+        //尝试从全局的缓存中获取一个channel
+        Channel channel = getAvaliableChannel(address);
+        if(log.isDebugEnabled()){
+            log.debug("获取了和【{}】建立的；链接通道，准备发送数据",address);
+        }
+
+        //写出报文
         CompletableFuture<Object> completableFuture = new CompletableFuture<>();
-        ZkrpcBootstrap.PENDING_REQUEST.put(1L, completableFuture);
+        ZkrpcBootstrap.PENDING_REQUEST.put(zkrpcRequest.getRequestId(), completableFuture);
         //这里直接writeAndFlush写出了一个请求，这个请求的实例就会进入pipeline执行出站的一系列操作
         //我们可以想象的到，第一个出站程序一定是将ZkrpcRequest-->二进制报文
         channel.writeAndFlush(zkrpcRequest).addListener((ChannelFutureListener) promise->{
@@ -86,7 +86,8 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 completableFuture.completeExceptionally(promise.cause());
             }
         });
-
+        //清理ThreadLocal
+        ZkrpcBootstrap.REQUEST_THREAD_LOACL.remove();
         return completableFuture.get(10, TimeUnit.SECONDS);
     }
 

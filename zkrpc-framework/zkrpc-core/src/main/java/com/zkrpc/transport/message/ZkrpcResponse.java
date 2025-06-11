@@ -18,6 +18,8 @@ public class ZkrpcResponse {
     //请求的类型，压缩的类型，序列化的方式
     private byte compressType;
     private byte serializeType;
+
+    private long timeStamp;
     //响应的状态码
     //1 表示成功，2表示异常
     private byte code;

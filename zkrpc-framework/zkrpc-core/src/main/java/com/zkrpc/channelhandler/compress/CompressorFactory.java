@@ -1,5 +1,5 @@
-package com.zkrpc.channelHandler.compress;
-import com.zkrpc.channelHandler.compress.impl.GzipCompressor;
+package com.zkrpc.channelhandler.compress;
+import com.zkrpc.channelhandler.compress.impl.GzipCompressor;
 import lombok.extern.slf4j.Slf4j;
 import java.util.concurrent.ConcurrentHashMap;
 

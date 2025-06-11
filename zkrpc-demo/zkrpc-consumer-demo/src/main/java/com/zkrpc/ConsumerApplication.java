@@ -1,8 +1,11 @@
 package com.zkrpc;
 
 
+import com.zkrpc.core.HeartbeatDetector;
 import com.zkrpc.discovery.RegistryConfig;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Map;
 
 @Slf4j
 public class ConsumerApplication {
@@ -21,9 +24,13 @@ public class ConsumerApplication {
                 .compress("gzip")
                 .reference(reference);
 
+
         //获取一个代理对象
         HelloZkrpc helloZkrpc = reference.get();
-        String sayHi = helloZkrpc.sayHi("你好zkrpc");
-        log.info("sayHi:{}", sayHi);
+        for (int i = 0; i < 10; i++) {
+            String sayHi = helloZkrpc.sayHi("你好zkrpc");
+            log.info("sayHi:{}", sayHi);
+        }
+
     }
 }

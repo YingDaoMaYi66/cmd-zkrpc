@@ -1,10 +1,15 @@
 package com.zkrpc;
 
-import com.zkrpc.channelHandler.handler.MethodCallHandler;
-import com.zkrpc.channelHandler.handler.ZkrpcRequestDecoder;
-import com.zkrpc.channelHandler.handler.ZkrpcResponseEncoder;
+import com.zkrpc.channelhandler.handler.MethodCallHandler;
+import com.zkrpc.channelhandler.handler.ZkrpcRequestDecoder;
+import com.zkrpc.channelhandler.handler.ZkrpcResponseEncoder;
+import com.zkrpc.core.HeartbeatDetector;
 import com.zkrpc.discovery.Registry;
 import com.zkrpc.discovery.RegistryConfig;
+import com.zkrpc.loadbalancer.LoadBalancer;
+import com.zkrpc.loadbalancer.impl.ConsistentHashBalancer;
+import com.zkrpc.loadbalancer.impl.RoundRobinLoadBalancer;
+import com.zkrpc.transport.message.ZkrpcRequest;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -16,13 +21,15 @@ import org.apache.zookeeper.ZooKeeper;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 public class ZkrpcBootstrap {
-
-
+    //使用ThreadLocal创建
+    public static final ThreadLocal<ZkrpcRequest> REQUEST_THREAD_LOACL = new ThreadLocal<>();
+    public static final int PORT = 8090;
     //YrpcBootstrap是一个单例类，使用饿汉式单例模式，我们希望每个应用都只有一个实例
     private static final ZkrpcBootstrap ZKRPC_BOOTSTRAP = new ZkrpcBootstrap();
     //维护一个已经发布且暴露的服务列表Key是Interface的全限定名 value ->ServiceConfig
@@ -33,7 +40,6 @@ public class ZkrpcBootstrap {
     private RegistryConfig registryConfig;
     //维护一个协议的配置
     private ProtocolConfig protocolConfig;
-    private final int port = 8088;
     //todo 雪花算法的配置参数是要在配置文件进行读取的
     public static final IdGenerator ID_GENERATOR = new IdGenerator(1L,2L);
     //序列化方式默认配置项
@@ -44,8 +50,12 @@ public class ZkrpcBootstrap {
     private ZooKeeper  zookeeper;
     //注册中心
     private Registry registry;
+    //负载均衡
+    public static  LoadBalancer LOAD_BALANCER;
     //维护一个链接的缓存 如果使用这样的类做key一定要看它有没有重写hashcode和equals 和tostring方法
     public final static Map<InetSocketAddress, Channel> CHANNEL_CACHE = new ConcurrentHashMap<>(16);
+    //用来缓存全局的心跳机制带来的相应时间
+    public final static Map<Long, Channel> ANSWER_TIME_CHANNEL_CACHE = new TreeMap<>();
     //定义全局对外挂起的 completeableFuture
     public final static Map<Long, CompletableFuture<Object>> PENDING_REQUEST = new ConcurrentHashMap<>(128);
 
@@ -76,6 +86,8 @@ public class ZkrpcBootstrap {
         //这里维护一个zookeeper实例，但是这样写，会将zookeeper和当前工程耦合
         //尝试使用registryConfig获取一个注册中心，有点工厂设计模式的意思了
         this.registry = registryConfig.getRegistry();
+        //todo 需要修改
+        ZkrpcBootstrap.LOAD_BALANCER = new ConsistentHashBalancer();
         return this;
     }
 
@@ -144,7 +156,8 @@ public class ZkrpcBootstrap {
                         }
                     });
             //4、绑定端口
-            ChannelFuture channelFuture = serverbootstrap.bind(port).sync();
+            ChannelFuture channelFuture = serverbootstrap.bind(PORT).sync();
+
             channelFuture.channel().closeFuture().sync();
         }catch (InterruptedException e){
             e.printStackTrace();
@@ -163,6 +176,9 @@ public class ZkrpcBootstrap {
      * -----------------------------------服务调用方的相关api-----------------------------------------------------------------------------------------
      */
     public ZkrpcBootstrap reference(ReferenceConfig<?> reference) {
+        //开启一个对这个服务的心跳检测
+        HeartbeatDetector.detectHeartbeat(reference.getInterface().getName());
+
         reference.setRegistry(registry);
         return this;
     }
@@ -179,6 +195,11 @@ public class ZkrpcBootstrap {
         return this;
     }
 
+    /**
+     * 配置解压缩的方式
+     * @param compressType 压缩类型
+     * @return ZkrpcBootstrap
+     */
     public ZkrpcBootstrap compress(String compressType) {
         COMPRESS_TYPE = compressType;
         if (log.isDebugEnabled()) {
@@ -186,4 +207,9 @@ public class ZkrpcBootstrap {
         }
         return this;
     }
+
+    public  Registry getRegistry(){
+        return registry;
+    }
+
 }

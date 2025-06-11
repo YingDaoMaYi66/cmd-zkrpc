@@ -1,8 +1,8 @@
-package com.zkrpc.channelHandler;
+package com.zkrpc.channelhandler;
 
-import com.zkrpc.channelHandler.handler.MySimpleChannelInboundHandler;
-import com.zkrpc.channelHandler.handler.ZkrpcRequestEncoder;
-import com.zkrpc.channelHandler.handler.ZkrpcResponseDecoder;
+import com.zkrpc.channelhandler.handler.MySimpleChannelInboundHandler;
+import com.zkrpc.channelhandler.handler.ZkrpcRequestEncoder;
+import com.zkrpc.channelhandler.handler.ZkrpcResponseDecoder;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.logging.LogLevel;

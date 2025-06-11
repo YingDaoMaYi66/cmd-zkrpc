@@ -1,6 +1,6 @@
-package com.zkrpc.channelHandler.handler;
-import com.zkrpc.channelHandler.compress.Compressor;
-import com.zkrpc.channelHandler.compress.CompressorFactory;
+package com.zkrpc.channelhandler.handler;
+import com.zkrpc.channelhandler.compress.Compressor;
+import com.zkrpc.channelhandler.compress.CompressorFactory;
 import com.zkrpc.serialize.Serializer;
 import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.MessageFormatConstant;
@@ -9,6 +9,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Date;
 /*
  * consumer的端的解码器，用来解码provider端发送过来的响应
  */
@@ -79,12 +81,15 @@ public class ZkrpcResponseDecoder extends LengthFieldBasedFrameDecoder {
         byte compressType = byteBuf.readByte();
         //8、请求id
         long requestId = byteBuf.readLong();
+        //9、使用时间戳
+        long timeStamp = byteBuf.readLong();
         //我们需要封装
         ZkrpcResponse zkrpcResponse = new ZkrpcResponse();
         zkrpcResponse.setCode(responseCode);
         zkrpcResponse.setCompressType(compressType);
         zkrpcResponse.setSerializeType(serializeType);
         zkrpcResponse.setRequestId(requestId);
+        zkrpcResponse.setTimeStamp(timeStamp);
         // todo 心跳请求没有负载，此处可以判断并直接返回
 //        if (requestType == RequestType.HEART_BEAT.getId()){
 //            return zkrpcRequest;
@@ -94,15 +99,17 @@ public class ZkrpcResponseDecoder extends LengthFieldBasedFrameDecoder {
         byte[] payload = new byte[bodyLength];
         byteBuf.readBytes(payload);
         //有了字节数组后就可以解压缩，反序列化
+        if (payload.length > 0) {
 
-        //todo 解压缩
-        Compressor compressor = CompressorFactory.getCompressor(compressType).getCompressor();
-        payload = compressor.decompress(payload);
-        //todo 反序列化
-        Serializer serializer = SerializerFactory
+            //1、 解压缩
+            Compressor compressor = CompressorFactory.getCompressor(compressType).getCompressor();
+            payload = compressor.decompress(payload);
+            //2、 反序列化
+            Serializer serializer = SerializerFactory
                 .getSerialzer(zkrpcResponse.getSerializeType()).getSerializer();
-        Object body = serializer.deserialize(payload, Object.class);
-        zkrpcResponse.setBody(body);
+            Object body = serializer.deserialize(payload, Object.class);
+            zkrpcResponse.setBody(body);
+        }
 
         if(log.isDebugEnabled()){
             log.debug("响应【{}】已经在调用端端完成解码工作", zkrpcResponse.getRequestId());

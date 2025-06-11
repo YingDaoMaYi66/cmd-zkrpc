@@ -1,5 +1,5 @@
 package com.zkrpc;
-import com.zkrpc.channelHandler.ConsumerChannelInitializer;
+import com.zkrpc.channelhandler.ConsumerChannelInitializer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;

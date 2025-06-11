@@ -1,4 +1,4 @@
-package com.zkrpc.channelHandler.compress;
+package com.zkrpc.channelhandler.compress;
 
 /**
  * 压缩

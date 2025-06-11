@@ -1,7 +1,7 @@
-package com.zkrpc.channelHandler.handler;
+package com.zkrpc.channelhandler.handler;
 
-import com.zkrpc.channelHandler.compress.Compressor;
-import com.zkrpc.channelHandler.compress.CompressorFactory;
+import com.zkrpc.channelhandler.compress.Compressor;
+import com.zkrpc.channelhandler.compress.CompressorFactory;
 import com.zkrpc.enumeration.RequestType;
 import com.zkrpc.serialize.Serializer;
 import com.zkrpc.serialize.SerializerFactory;
@@ -12,6 +12,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Random;
 /*
  * provider的端的解码器，用来解码客户端发送过来的请求
  */
@@ -49,6 +51,9 @@ public class ZkrpcRequestDecoder extends LengthFieldBasedFrameDecoder {
 
     @Override
     protected Object decode(ChannelHandlerContext ctx, ByteBuf in) throws Exception {
+        //todo：目的：本机速度太快吗，无法负载均衡 正式完成后要将这个延时去除
+        Thread.sleep(new Random().nextInt(50));
+
         Object decode = super.decode(ctx, in);
         if (decode instanceof ByteBuf byteBuf) {
             return decodeFrame(byteBuf);
@@ -83,12 +88,15 @@ public class ZkrpcRequestDecoder extends LengthFieldBasedFrameDecoder {
         byte compressType = byteBuf.readByte();
         //8、请求id
         long requestId = byteBuf.readLong();
+        //9、时间戳
+        long timeStamp = byteBuf.readLong();
         //我们需要封装
         ZkrpcRequest zkrpcRequest = new ZkrpcRequest();
         zkrpcRequest.setRequestType(requestType);
         zkrpcRequest.setCompressType(compressType);
         zkrpcRequest.setSerializeType(serializeType);
         zkrpcRequest.setRequestId(requestId);
+        zkrpcRequest.setTimeStamp(timeStamp);
         //心跳请求没有负载，此处可以判断并直接返回
         if (requestType == RequestType.HEART_BEAT.getId()){
             return zkrpcRequest;
@@ -96,19 +104,24 @@ public class ZkrpcRequestDecoder extends LengthFieldBasedFrameDecoder {
 
         int payloadLength = fullLength - headerLength;
         byte[] payload = new byte[payloadLength];
+
         int readableBytes = byteBuf.readableBytes();
         byteBuf.readBytes(payload);
         log.debug("请求的负载长度为【{}】，实际读取的字节数为【{}】",payloadLength,readableBytes);
         //有了字节数组后就可以解压缩，反序列化
 
         //解压缩
-        Compressor compressor = CompressorFactory.getCompressor(compressType).getCompressor();
-        payload = compressor.decompress(payload);
-        //反序列化
-        // 1-->反序列化器
-        Serializer serialzer = SerializerFactory.getSerialzer(serializeType).getSerializer();
-        RequestPayload requestPayload = serialzer.deserialize(payload, RequestPayload.class);
-        zkrpcRequest.setRequestPayload(requestPayload);
+        if (payload !=null && payload.length != 0) {
+            Compressor compressor = CompressorFactory.getCompressor(compressType).getCompressor();
+            payload = compressor.decompress(payload);
+
+
+            //反序列化
+            // 1-->反序列化器
+            Serializer serialzer = SerializerFactory.getSerialzer(serializeType).getSerializer();
+            RequestPayload requestPayload = serialzer.deserialize(payload, RequestPayload.class);
+            zkrpcRequest.setRequestPayload(requestPayload);
+        }
         if(log.isDebugEnabled()){
             log.debug("请求【{}】已经在服务端完成解码工作",zkrpcRequest.getRequestId());
         }

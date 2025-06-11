@@ -1,4 +1,4 @@
-package com.zkrpc.channelHandler.handler;
+package com.zkrpc.channelhandler.handler;
 
 import com.zkrpc.ZkrpcBootstrap;
 import com.zkrpc.transport.message.ZkrpcResponse;
@@ -18,7 +18,7 @@ public class MySimpleChannelInboundHandler extends SimpleChannelInboundHandler<Z
         //服务提供方给予的结果
         Object returnValue = zkrpcResponse.getBody();
         //从全局的挂起的请求中寻找与之匹配的待处理的cf
-        CompletableFuture<Object> completableFuture = ZkrpcBootstrap.PENDING_REQUEST.get(1L);
+        CompletableFuture<Object> completableFuture = ZkrpcBootstrap.PENDING_REQUEST.get(zkrpcResponse.getRequestId());
         completableFuture.complete(returnValue);
         if(log.isDebugEnabled()){
             log.debug("已经寻找到编号为【{}】的completablefuture，处理响应结果", zkrpcResponse.getRequestId());

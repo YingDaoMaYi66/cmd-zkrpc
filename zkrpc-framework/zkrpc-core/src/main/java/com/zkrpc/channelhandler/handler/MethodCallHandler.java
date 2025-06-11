@@ -1,7 +1,8 @@
-package com.zkrpc.channelHandler.handler;
+package com.zkrpc.channelhandler.handler;
 
 import com.zkrpc.ServiceConfig;
 import com.zkrpc.ZkrpcBootstrap;
+import com.zkrpc.enumeration.RequestType;
 import com.zkrpc.enumeration.RespCode;
 import com.zkrpc.transport.message.RequestPayload;
 import com.zkrpc.transport.message.ZkrpcRequest;
@@ -24,10 +25,14 @@ public class MethodCallHandler extends SimpleChannelInboundHandler<ZkrpcRequest>
         RequestPayload requestPayload = zkrpcRequest.getRequestPayload();
 
         //2、根据负载内容进行方法调用
-        Object result = callTargetMethod(requestPayload);
-        if (log.isDebugEnabled()) {
-            log.debug("请求【{}】已经在服务端完成方法调用。", zkrpcRequest.getRequestId());
+        Object result = null;
+        if (!(zkrpcRequest.getRequestType() == RequestType.HEART_BEAT.getId())){
+            result = callTargetMethod(requestPayload);
+            if (log.isDebugEnabled()) {
+                log.debug("请求【{}】已经在服务端完成方法调用。", zkrpcRequest.getRequestId());
+            }
         }
+
         //3、封装响应
         ZkrpcResponse zkrpcResponse = new ZkrpcResponse();
         zkrpcResponse.setCode((RespCode.SUCCESS).getCode());
