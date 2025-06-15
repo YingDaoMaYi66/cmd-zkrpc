@@ -1,5 +1,6 @@
 package com.zkrpc;
 
+import com.zkrpc.annotation.ZkrpcApi;
 import com.zkrpc.channelhandler.handler.MethodCallHandler;
 import com.zkrpc.channelhandler.handler.ZkrpcRequestDecoder;
 import com.zkrpc.channelhandler.handler.ZkrpcResponseEncoder;
@@ -8,6 +9,7 @@ import com.zkrpc.discovery.Registry;
 import com.zkrpc.discovery.RegistryConfig;
 import com.zkrpc.loadbalancer.LoadBalancer;
 import com.zkrpc.loadbalancer.impl.ConsistentHashBalancer;
+import com.zkrpc.loadbalancer.impl.MinimumResponseTimeLoadBalancer;
 import com.zkrpc.loadbalancer.impl.RoundRobinLoadBalancer;
 import com.zkrpc.transport.message.ZkrpcRequest;
 import io.netty.bootstrap.ServerBootstrap;
@@ -18,18 +20,25 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LoggingHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.zookeeper.ZooKeeper;
+
+import java.io.File;
+import java.io.FileFilter;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class ZkrpcBootstrap {
     //使用ThreadLocal创建
     public static final ThreadLocal<ZkrpcRequest> REQUEST_THREAD_LOACL = new ThreadLocal<>();
-    public static final int PORT = 8090;
+    public static final int PORT = 8093;
     //YrpcBootstrap是一个单例类，使用饿汉式单例模式，我们希望每个应用都只有一个实例
     private static final ZkrpcBootstrap ZKRPC_BOOTSTRAP = new ZkrpcBootstrap();
     //维护一个已经发布且暴露的服务列表Key是Interface的全限定名 value ->ServiceConfig
@@ -55,7 +64,7 @@ public class ZkrpcBootstrap {
     //维护一个链接的缓存 如果使用这样的类做key一定要看它有没有重写hashcode和equals 和tostring方法
     public final static Map<InetSocketAddress, Channel> CHANNEL_CACHE = new ConcurrentHashMap<>(16);
     //用来缓存全局的心跳机制带来的相应时间
-    public final static Map<Long, Channel> ANSWER_TIME_CHANNEL_CACHE = new TreeMap<>();
+    public final static TreeMap<Long, Channel> ANSWER_TIME_CHANNEL_CACHE = new TreeMap<>();
     //定义全局对外挂起的 completeableFuture
     public final static Map<Long, CompletableFuture<Object>> PENDING_REQUEST = new ConcurrentHashMap<>(128);
 
@@ -86,8 +95,8 @@ public class ZkrpcBootstrap {
         //这里维护一个zookeeper实例，但是这样写，会将zookeeper和当前工程耦合
         //尝试使用registryConfig获取一个注册中心，有点工厂设计模式的意思了
         this.registry = registryConfig.getRegistry();
-        //todo 需要修改
-        ZkrpcBootstrap.LOAD_BALANCER = new ConsistentHashBalancer();
+        //todo 负载均衡选择
+        ZkrpcBootstrap.LOAD_BALANCER = new RoundRobinLoadBalancer();
         return this;
     }
 
@@ -212,4 +221,97 @@ public class ZkrpcBootstrap {
         return registry;
     }
 
+    public ZkrpcBootstrap scan(String packageName) {
+        //1、需要通过packageName扫描包下面的所有的类的权限定名称
+        List<String> classNames = getALlClassNames(packageName);
+        //2、通过反射获取他的接口，构建具体实现
+        List<Class<?>> classes = classNames.stream()
+                .map(className -> {
+                    try {
+                        return Class.forName(className);
+                    } catch (ClassNotFoundException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).filter(clazz -> clazz.getAnnotation(ZkrpcApi.class) != null)
+                .collect(Collectors.toList());
+
+        for (Class<?> clazz : classes) {
+            //获取他的接口
+            Class<?>[] interfaces = clazz.getInterfaces();
+            Object instance = null;
+            try {
+                instance = clazz.getConstructor().newInstance();
+            } catch (InstantiationException | NoSuchMethodException | InvocationTargetException |
+                     IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+
+            for (Class<?> anInterface : interfaces) {
+                ServiceConfig<Object> serviceConfig = new ServiceConfig<>();
+                serviceConfig.setInterface(anInterface);
+                serviceConfig.setRef(instance);
+                if (log.isDebugEnabled()) {
+                    log.debug("----->已经通过包扫描，将服务【{}】发布",anInterface);
+                }
+                publish(serviceConfig);
+            }
+            //3、发布
+
+
+        }
+
+        return this;
+    }
+
+    private List<String> getALlClassNames(String packageName) {
+        //1、通过packageName获得绝对路径
+        String basePath = packageName.replaceAll("\\.", "/");
+        URL url = ClassLoader.getSystemClassLoader().getResource(basePath);
+        if(url == null){
+            throw new RuntimeException("包扫描时,发现路径不存在" + basePath);
+        }
+        String absolutePath = url.getPath();
+        List<String> classNames = new ArrayList<>();
+        classNames = recursionFile(absolutePath,classNames,basePath);
+        return classNames;
+    }
+
+    private List<String> recursionFile(String absolutePath, List<String> classNames,String basePath) {
+        //获取文件
+        File file = new File(absolutePath);
+        if (file.isDirectory()){
+            //找到文件夹的所有文件
+            File[] children = file.listFiles(pathname -> pathname.isDirectory() || pathname.getPath().contains(".class"));
+            if (children == null || children.length == 0) {
+                return classNames; // 如果没有子文件，直接返回
+            }
+            for(File child : children){
+                if (child.isDirectory()){
+                    recursionFile(child.getAbsolutePath(),classNames,basePath);
+                }else{
+                    //文件-->类的权限限定名称
+                    String className = getClassNameByAbsolutePath(child.getAbsolutePath(),basePath);
+                    classNames.add(className);
+                }
+            }
+        }else {
+            String className = getClassNameByAbsolutePath(absolutePath,basePath);
+            classNames.add(className);
+        }
+        return classNames;
+    }
+
+    private String getClassNameByAbsolutePath(String absolutePath,String basePath) {
+        //将获取到的绝对路径转换为类的全限定名称
+        String fileName = absolutePath.
+                substring(absolutePath.lastIndexOf(basePath.replaceAll("/","\\\\")))
+                .replaceAll("\\\\",".");
+        fileName = fileName.substring(0, fileName.indexOf(".class"));
+        return fileName;
+    }
+
+    public static void main(String[] args) {
+        List<String> aLlClassNames = ZkrpcBootstrap.getInstance().getALlClassNames("com.zkrpc");
+        System.out.println(aLlClassNames);
+    }
 }

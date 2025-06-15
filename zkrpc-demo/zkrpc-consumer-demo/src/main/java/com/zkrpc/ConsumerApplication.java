@@ -1,12 +1,6 @@
 package com.zkrpc;
-
-
-import com.zkrpc.core.HeartbeatDetector;
 import com.zkrpc.discovery.RegistryConfig;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.Map;
-
 @Slf4j
 public class ConsumerApplication {
     public static void main(String[] args) {
@@ -24,13 +18,23 @@ public class ConsumerApplication {
                 .compress("gzip")
                 .reference(reference);
 
+        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
-        //获取一个代理对象
         HelloZkrpc helloZkrpc = reference.get();
-        for (int i = 0; i < 10; i++) {
-            String sayHi = helloZkrpc.sayHi("你好zkrpc");
-            log.info("sayHi:{}", sayHi);
+        while(true) {
+            try {
+                Thread.sleep(10000);
+                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            for (int i = 0; i < 5; i++) {
+                String sayHi = helloZkrpc.sayHi("你好zkrpc");
+                log.info("sayHi:{}", sayHi);
+            }
         }
+        //获取一个代理对象
+
 
     }
 }

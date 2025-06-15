@@ -18,10 +18,10 @@ public class RoundRobinLoadBalancer extends AbstractLoadBalancer {
         return new RoundRobinSelector(serviceList);
     }
 
+
+
     private static class RoundRobinSelector implements Selector{
-
         private List<InetSocketAddress> serviceList;
-
         private AtomicInteger index ;
 
         public RoundRobinSelector(List<InetSocketAddress> serviceList) {
@@ -31,25 +31,21 @@ public class RoundRobinLoadBalancer extends AbstractLoadBalancer {
 
         @Override
         public InetSocketAddress getNext() {
-            if (serviceList == null || serviceList.isEmpty()) {
+            if (serviceList == null || serviceList.size()== 0 ) {
                 log.error("进行负载均衡选取节点时发现服务列表为空");
                 throw new LoadBalancerException();
             }
-            //如果他到了最后一个位置重置
-            if (index.get() == serviceList.size()) {
-                index.set(0);
-            }
             InetSocketAddress address = serviceList.get(index.get());
+            //如果他到了最后一个位置重置
+            if (index.get() == serviceList.size()-1) {
+                index.set(0);
+            }else {
+                //游标后移一位
+                index.incrementAndGet();
+            }
 
-            //游标后移一位
-            index.incrementAndGet();
+
             return address;
-        }
-
-        //这个需要结合watcher机制
-        @Override
-        public void reBalance() {
-
         }
     }
 }

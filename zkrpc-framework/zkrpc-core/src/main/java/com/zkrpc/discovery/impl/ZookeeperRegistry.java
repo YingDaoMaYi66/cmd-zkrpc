@@ -7,8 +7,11 @@ import com.zkrpc.exceptions.DiscoveryException;
 import com.zkrpc.utils.NetUtils;
 import com.zkrpc.utils.zookeeper.ZookeeperNode;
 import com.zkrpc.utils.zookeeper.ZookeeperUtil;
+import com.zkrpc.watch.UpAndDownWatcher;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.WatchedEvent;
+import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -60,7 +63,7 @@ public class ZookeeperRegistry extends AbstractRegistry {
         //1、找到服务对应的节点
         String serviceNode = Constant.BASE_PROVIDERS_PATH+"/"+name;
         //2、从zk中获取他的子节点 192.168.12.123:2151
-        List<String> children = ZookeeperUtil.getChildren(zooKeeper, serviceNode, null);
+        List<String> children = ZookeeperUtil.getChildren(zooKeeper, serviceNode, new UpAndDownWatcher());
         //3、获取所有的可用的服务列表
         List<InetSocketAddress> inetSocketAddresses = children.stream().map(ipString -> {
             String[] ipAndPort = ipString.split(":");
@@ -68,7 +71,7 @@ public class ZookeeperRegistry extends AbstractRegistry {
             int port = Integer.parseInt(ipAndPort[1]);
             return new InetSocketAddress(ip, port);
         }).toList();
-        if (inetSocketAddresses.isEmpty()) {
+        if (inetSocketAddresses.size()==0) {
             throw new DiscoveryException("未发现任何可用的服务主机.");
         }
         return inetSocketAddresses;

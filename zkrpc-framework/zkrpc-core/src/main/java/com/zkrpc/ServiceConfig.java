@@ -2,15 +2,15 @@ package com.zkrpc;
 
 public class ServiceConfig<T> {
     // 服务提供方的接口
-    private Class<T> interfaceProvider;
+    private Class<?> interfaceProvider;
     // 服务提供方的实现类
     private Object ref;
 
-    public Class<T> getInterface() {
+    public Class<?> getInterface() {
         return interfaceProvider;
     }
 
-    public void setInterface(Class<T> interfaceProvider) {
+    public void setInterface(Class<?> interfaceProvider) {
         this.interfaceProvider = interfaceProvider;
     }
 

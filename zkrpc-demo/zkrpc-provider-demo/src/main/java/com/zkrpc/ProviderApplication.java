@@ -25,7 +25,9 @@ public class ProviderApplication {
                 //设置序列化机制
                 .protocol(new ProtocolConfig("jdk"))
                 //发布服务
-                .publish(service)
+//                .publish(service)
+                //扫包批量发布
+                .scan("com.zkrpc")
                 //启动服务
                 .start();
     }

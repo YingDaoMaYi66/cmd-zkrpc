@@ -32,6 +32,16 @@ public abstract class AbstractLoadBalancer implements LoadBalancer{
     }
 
     /**
+     * 重新进行负载均衡
+     * @param serviceName 服务名称
+     */
+    @Override
+    public synchronized void reLoadBalance(String serviceName,List<InetSocketAddress> addresses) {
+        //根据新的服务列表生成新的selector
+        cache.put(serviceName,getSelector(addresses));
+    }
+
+    /**
      * 由子类进行搜索
      * @param serviceList 菔务列表
      * @return 负载均衡算法选择器

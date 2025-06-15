@@ -10,6 +10,4 @@ public interface Selector {
      */
     InetSocketAddress getNext();
 
-    //todo 服务上下线需要重新去做负载均衡
-     void reBalance();
 }

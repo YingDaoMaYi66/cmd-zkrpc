@@ -87,11 +87,6 @@ public class ConsistentHashBalancer extends AbstractLoadBalancer {
 
         }
 
-        //这个需要结合watcher机制
-        @Override
-        public void reBalance() {
-
-        }
 
         /**
          * 具体的hash算法 todo 小小的遗憾，这样也是不均衡的
@@ -118,8 +113,6 @@ public class ConsistentHashBalancer extends AbstractLoadBalancer {
                 }else{
                     res = res | digest[i];
                 }
-                System.out.println("d-->"+ toBinary(digest[i]));
-                System.out.println("r-->"+toBinary(res));
             }
             return res;
         }

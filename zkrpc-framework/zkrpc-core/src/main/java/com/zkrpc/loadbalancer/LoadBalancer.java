@@ -1,5 +1,7 @@
 package com.zkrpc.loadbalancer;
 import java.net.InetSocketAddress;
+import java.util.List;
+
 /**
  * 接口
  */
@@ -11,4 +13,10 @@ public interface LoadBalancer {
      * @return 服务地址
      */
     InetSocketAddress selectServiceAddress(String serviceName);
+
+    /**
+     * 当感知节点发生了动态上下限，我们需要进行重新负载均衡
+     * @param serviceName 服务名称
+     */
+    void reLoadBalance(String serviceName, List<InetSocketAddress> address);
 }

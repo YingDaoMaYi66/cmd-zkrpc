@@ -88,6 +88,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         });
         //清理ThreadLocal
         ZkrpcBootstrap.REQUEST_THREAD_LOACL.remove();
+
         return completableFuture.get(10, TimeUnit.SECONDS);
     }
 
@@ -102,9 +103,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         //1、尝试从全局缓存获取一个channel
         Channel channel = ZkrpcBootstrap.CHANNEL_CACHE.get(address);
         if (channel == null) {
-
             CompletableFuture<Channel> channelFuture = new CompletableFuture<>();
-
             NettyBootstrapInitializer.getBootstrap().connect(address).addListener(
                     (ChannelFutureListener) promise->{
                         if (promise.isDone()) {
@@ -115,7 +114,8 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                         } else if (!promise.isSuccess()) {
                             channelFuture.completeExceptionally(promise.cause());
                         }
-                    });
+                    }
+            );
             try {
                 channel = channelFuture.get(3, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
