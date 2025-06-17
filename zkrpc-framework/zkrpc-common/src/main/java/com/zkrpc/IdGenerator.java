@@ -47,7 +47,7 @@ public class IdGenerator {
     //时钟回拨的问题，我们需要去处理
     private long lastTimeStamp = -1L;
 
-    public IdGenerator(Long dataCenterId, Long machineId) {
+    public IdGenerator(long dataCenterId, long machineId) {
         //判断传入的参数是否合法
         if(dataCenterId > DATA_CENTER_MAX || machineId > MACHINE_MAX) {
             throw new IllegalArgumentException("你传入的数据中心编号或机器号不合法");

@@ -53,10 +53,10 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 .build();
 
         ZkrpcRequest zkrpcRequest = ZkrpcRequest.builder()
-                .requestId(ZkrpcBootstrap.ID_GENERATOR.getId())
-                .compressType(CompressorFactory.getCompressor(ZkrpcBootstrap.COMPRESS_TYPE).getCode())
+                .requestId(ZkrpcBootstrap.getInstance().getConfiguration().getIdGenerator().getId())
+                .compressType(CompressorFactory.getCompressor(ZkrpcBootstrap.getInstance().getConfiguration().getCompressType()).getCode())
                 .requestType(RequestType.REQUEST.getId())
-                .serializeType(SerializerFactory.getSerialzer(ZkrpcBootstrap.SERIALIZE_TYPE).getCode())
+                .serializeType(SerializerFactory.getSerialzer(ZkrpcBootstrap.getInstance().getConfiguration().getSerializeType()).getCode())
                 .timeStamp(new Date().getTime())
                 .requestPayload(requestPayload)
                 .build();
@@ -64,7 +64,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         ZkrpcBootstrap.REQUEST_THREAD_LOACL.set(zkrpcRequest);
 
         //2、发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
-        InetSocketAddress address = ZkrpcBootstrap.LOAD_BALANCER.selectServiceAddress(interfaceRef.getName());
+        InetSocketAddress address = ZkrpcBootstrap.getInstance().getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName());
         if (log.isDebugEnabled()){
             log.debug("服务调用方,返现了服务【{}】的可用主机【{}】",
                     interfaceRef.getName(), address);

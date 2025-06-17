@@ -25,7 +25,7 @@ public class UpAndDownWatcher implements Watcher {
             //获取地址
             String serviceName = getServiceName(event.getPath());
             //获取注册中心
-            Registry registry = ZkrpcBootstrap.getInstance().getRegistry();
+            Registry registry = ZkrpcBootstrap.getInstance().getConfiguration().getRegistryConfig().getRegistry();
             //zookeeper发现
             List<InetSocketAddress> addresses = registry.lookup(serviceName);
             //处理新增的节点
@@ -52,7 +52,7 @@ public class UpAndDownWatcher implements Watcher {
                 }
             }
             // 获得负载均衡器，进行重新的loadBalance
-            LoadBalancer loadBalancer = ZkrpcBootstrap.LOAD_BALANCER;
+            LoadBalancer loadBalancer = ZkrpcBootstrap.getInstance().getConfiguration().getLoadBalancer();
             loadBalancer.reLoadBalance(serviceName,addresses);
         }
     }
