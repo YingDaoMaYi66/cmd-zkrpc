@@ -1,6 +1,6 @@
 package com.zkrpc.channelhandler.handler;
-import com.zkrpc.channelhandler.compress.Compressor;
-import com.zkrpc.channelhandler.compress.CompressorFactory;
+import com.zkrpc.compress.Compressor;
+import com.zkrpc.compress.CompressorFactory;
 import com.zkrpc.serialize.Serializer;
 import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.MessageFormatConstant;
@@ -9,8 +9,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.Date;
 /*
  * consumer的端的解码器，用来解码provider端发送过来的响应
  */
@@ -102,11 +100,11 @@ public class ZkrpcResponseDecoder extends LengthFieldBasedFrameDecoder {
         if (payload.length > 0) {
 
             //1、 解压缩
-            Compressor compressor = CompressorFactory.getCompressor(compressType).getCompressor();
+            Compressor compressor = CompressorFactory.getCompressor(compressType).getImpl();
             payload = compressor.decompress(payload);
             //2、 反序列化
             Serializer serializer = SerializerFactory
-                .getSerialzer(zkrpcResponse.getSerializeType()).getSerializer();
+                .getSerialzer(zkrpcResponse.getSerializeType()).getImpl();
             Object body = serializer.deserialize(payload, Object.class);
             zkrpcResponse.setBody(body);
         }

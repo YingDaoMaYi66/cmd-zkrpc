@@ -1,12 +1,13 @@
-package com.zkrpc;
-import com.zkrpc.channelhandler.compress.Compressor;
-import com.zkrpc.channelhandler.compress.impl.GzipCompressor;
+package com.zkrpc.config;
+
+import com.zkrpc.IdGenerator;
+import com.zkrpc.ProtocolConfig;
+import com.zkrpc.compress.Compressor;
+import com.zkrpc.compress.CompressorFactory;
 import com.zkrpc.discovery.RegistryConfig;
 import com.zkrpc.loadbalancer.LoadBalancer;
-import com.zkrpc.loadbalancer.impl.RoundRobinLoadBalancer;
 import com.zkrpc.serialize.Serializer;
-import com.zkrpc.serialize.impl.JdkSerizlizer;
-import lombok.Data;
+import com.zkrpc.serialize.SerializerFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -19,52 +20,15 @@ import javax.xml.xpath.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Objects;
 
-/**
- * 全局配置类，优先代码配置----->xml配置--->默认配置
- */
-@Data
 @Slf4j
-public class Configuration {
-
-    // 配置信息-->端口号
-    private int port = 8094;
-
-    // 配置信息-->应用程序的名字
-    private String appName = "default";
-
-    // 配置信息-->注册中心
-    private RegistryConfig registryConfig = new RegistryConfig("zookeeper://127.0.0.1:2181");
-
-    // 配置信息-->序列化协议
-    private ProtocolConfig protocolConfig = new ProtocolConfig("jdk");
-
-    // 配置信息-->序列化协议
-    private String serializeType = "jdk";
-    private Serializer serializer = new JdkSerizlizer();
-
-    // 配置信息-->压缩使用的协议
-    private String compressType = "gzip";
-    private Compressor compressor = new GzipCompressor();
-
-    // 配置信息-->id发射器
-    public IdGenerator idGenerator = new IdGenerator(1L, 2L);
-
-    // 配置信息-->负载均衡策略
-    private LoadBalancer loadBalancer = new RoundRobinLoadBalancer();
-
-    // 读xml，dom4j
-    public Configuration() {
-        // 读取xml获得上边的信息
-        loadFromXml(this);
-
-    }
-
+public class XmlResolver {
     /**
      * 从配置文件读取配置信息,我们不使用dom4j，使用原生的api
      * @param configuration 配置实例
      */
-    private void loadFromXml(Configuration configuration) {
+    public void loadFromXml(Configuration configuration) {
         try {
             // 1、创建一个document
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -89,13 +53,17 @@ public class Configuration {
 
             configuration.setRegistryConfig(resolveRegistryConfig(doc, xpath));
 
+            //处理使用的压缩方式和序列化方式，并将其纳入工厂当中
             configuration.setCompressType(resolveCompressType(doc, xpath));
-            configuration.setCompressor(resolveCompressCompressor(doc, xpath));
-
             configuration.setSerializeType(resolveSerializeType(doc, xpath));
-            configuration.setProtocolConfig(new ProtocolConfig(this.serializeType));
 
-            configuration.setSerializer(resolveSerializer(doc, xpath));
+            //处理新的压缩方式和序列化方式，并将其纳入
+            ObjectWrapper<Compressor> compressorObjectWrapper = resolveCompressCompressor(doc, xpath);
+            CompressorFactory.addCompressor(compressorObjectWrapper);
+
+
+            ObjectWrapper<Serializer> serializerObjectWrapper = resolveSerializer(doc, xpath);
+            SerializerFactory.addSerializer(serializerObjectWrapper);
 
             configuration.setLoadBalancer(resolveLoadBalancer(doc, xpath));
 
@@ -184,9 +152,13 @@ public class Configuration {
      * @param xpath  xpath解析器
      * @return       Compressor
      */
-    private Compressor resolveCompressCompressor(Document doc, XPath xpath) {
+    private ObjectWrapper<Compressor> resolveCompressCompressor(Document doc, XPath xpath) {
         String expression = "/configuration/compressor";
-        return parseObject(doc, xpath, expression, null);
+        Compressor compressor = parseObject(doc, xpath, expression, null);
+        Byte code = Byte.valueOf(Objects.requireNonNull(parseString(doc, xpath, expression, "code")));
+        String name = parseString(doc, xpath, expression, "name");
+        return new ObjectWrapper<>(code, name, compressor);
+
     }
 
     /**
@@ -217,9 +189,12 @@ public class Configuration {
      * @param xpath  xpath解析器
      * @return       序列化器
      */
-    private Serializer resolveSerializer(Document doc, XPath xpath) {
+    private ObjectWrapper<Serializer> resolveSerializer(Document doc, XPath xpath) {
         String expression = "/configuration/serializer";
-        return parseObject(doc, xpath, expression, null);
+        Serializer serializer = parseObject(doc, xpath, expression, null);
+        Byte code = Byte.valueOf(Objects.requireNonNull(parseString(doc, xpath, expression, "code")));
+        String name = parseString(doc, xpath, expression, "name");
+        return new ObjectWrapper<>(code, name, serializer);
     }
 
 

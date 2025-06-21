@@ -23,7 +23,7 @@ public class ProviderApplication {
                 //配置注册中心
                 .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
                 //设置序列化机制
-                .protocol(new ProtocolConfig("jdk"))
+                .serialize("jdk")
                 //发布服务
 //                .publish(service)
                 //扫包批量发布

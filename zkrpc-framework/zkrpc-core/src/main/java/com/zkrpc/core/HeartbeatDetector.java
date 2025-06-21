@@ -2,7 +2,7 @@ package com.zkrpc.core;
 
 import com.zkrpc.NettyBootstrapInitializer;
 import com.zkrpc.ZkrpcBootstrap;
-import com.zkrpc.channelhandler.compress.CompressorFactory;
+import com.zkrpc.compress.CompressorFactory;
 import com.zkrpc.discovery.Registry;
 import com.zkrpc.enumeration.RequestType;
 import com.zkrpc.serialize.SerializerFactory;

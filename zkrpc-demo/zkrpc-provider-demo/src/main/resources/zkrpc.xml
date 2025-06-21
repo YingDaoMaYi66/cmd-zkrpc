@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE configuration SYSTEM "http://zkrpc.com/zkrpc-config.dtd">
 <configuration>
-    <port>8088</port>
+    <port>8089</port>
     <appName>zkrpc-default-appName</appName>
     <registry url="zookeeper://127.0.0.1:2181"/>
 
     <!-- 二选一 -->
     <serializeType type="hessian"/>
-    <serializer class="com.zkrpc.serialize.impl.HessianSerializer"/>
+    <serializer code="3" name="hessian" class="com.zkrpc.serialize.impl.HessianSerializer"/>
 
     <!-- 二选一 -->
     <compressType type="gzip"/>
-    <compressor class="com.zkrpc.compress.impl.GzipCompressor"/>
+    <compressor code="1" name="gzip" class="com.zkrpc.compress.impl.GzipCompressor"/>
 
     <!-- 二选一 -->
-    <loadBalancer class="com.zkrpc.loadbalancer.impl.com.zkrpc.loadbalancer.impl.RoundRobinLoadBalancer"/>
     <loadBalancerType type="minimumResponseTime"/>
+    <loadBalancer class="com.zkrpc.loadbalancer.impl.RoundRobinLoadBalancer"/>
+
 
     <idGenerator class="com.zkrpc.IdGenerator" dataCenterId="2" MachineId="4"/>
 </configuration>

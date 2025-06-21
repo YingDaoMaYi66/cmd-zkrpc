@@ -1,7 +1,7 @@
 package com.zkrpc.channelhandler.handler;
 
-import com.zkrpc.channelhandler.compress.Compressor;
-import com.zkrpc.channelhandler.compress.CompressorFactory;
+import com.zkrpc.compress.Compressor;
+import com.zkrpc.compress.CompressorFactory;
 import com.zkrpc.serialize.Serializer;
 import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.MessageFormatConstant;
@@ -74,10 +74,10 @@ public class ZkrpcResponseEncoder extends MessageToByteEncoder<ZkrpcResponse> {
         byte[] body = null;
         if(zkrpcResponse.getBody() != null) {
             Serializer serializer = SerializerFactory
-                    .getSerialzer(zkrpcResponse.getSerializeType()).getSerializer();
+                    .getSerialzer(zkrpcResponse.getSerializeType()).getImpl();
             body = serializer.serialize(zkrpcResponse.getBody());
             //todo 压缩
-            Compressor compressor = CompressorFactory.getCompressor(zkrpcResponse.getCompressType()).getCompressor();
+            Compressor compressor = CompressorFactory.getCompressor(zkrpcResponse.getCompressType()).getImpl();
             body = compressor.compress(body);
 
         }

@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.*;
 
 @Slf4j
-public class JdkSerizlizer implements Serializer {
+public class JdkSerializer implements Serializer {
     @Override
     public byte[] serialize(Object object) {
         if(object == null){

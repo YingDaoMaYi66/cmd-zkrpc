@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.*;
 
 @Slf4j
-public class HessianSeriazlizer implements Serializer {
+public class HessianSerializer implements Serializer {
     @Override
     public byte[] serialize(Object object) {
         if(object == null){
@@ -49,7 +49,7 @@ public class HessianSeriazlizer implements Serializer {
             }
             return t;
         }catch (IOException  e){
-            log.error("使用hession进行反序列化对象【{}】时发生异常.",clazz);
+            log.error("使用hessian进行反序列化对象【{}】时发生异常.",clazz);
             throw new SerizlizeException(e);
         }
     }

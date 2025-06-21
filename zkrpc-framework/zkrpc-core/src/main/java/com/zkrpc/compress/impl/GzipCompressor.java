@@ -1,6 +1,6 @@
-package com.zkrpc.channelhandler.compress.impl;
+package com.zkrpc.compress.impl;
 
-import com.zkrpc.channelhandler.compress.Compressor;
+import com.zkrpc.compress.Compressor;
 import com.zkrpc.exceptions.CompressException;
 import lombok.extern.slf4j.Slf4j;
 

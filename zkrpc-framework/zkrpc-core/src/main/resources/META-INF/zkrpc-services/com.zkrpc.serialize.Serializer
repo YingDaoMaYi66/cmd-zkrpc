@@ -1,0 +1,2 @@
+3-hessian-com.zkrpc.serialize.impl.HessianSerializer
+1-jdk-com.zkrpc.serialize.impl.JdkSerializer

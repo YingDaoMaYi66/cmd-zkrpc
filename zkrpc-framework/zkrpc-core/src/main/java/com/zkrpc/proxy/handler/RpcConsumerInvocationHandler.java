@@ -1,7 +1,8 @@
 package com.zkrpc.proxy.handler;
 import com.zkrpc.NettyBootstrapInitializer;
 import com.zkrpc.ZkrpcBootstrap;
-import com.zkrpc.channelhandler.compress.CompressorFactory;
+import com.zkrpc.annotation.TryTimes;
+import com.zkrpc.compress.CompressorFactory;
 import com.zkrpc.discovery.Registry;
 import com.zkrpc.enumeration.RequestType;
 import com.zkrpc.exceptions.DiscoveryException;
@@ -39,57 +40,106 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         this.interfaceRef = interfaceRef;
     }
 
+    /**
+     *
+     * @param proxy the proxy instance that the method was invoked on
+     *
+     * @param method the {@code Method} instance corresponding to
+     * the interface method invoked on the proxy instance.  The declaring
+     * class of the {@code Method} object will be the interface that
+     * the method was declared in, which may be a superinterface of the
+     * proxy interface that the proxy class inherits the method through.
+     *
+     * @param args an array of objects containing the values of the
+     * arguments passed in the method invocation on the proxy instance,
+     * or {@code null} if interface method takes no arguments.
+     * Arguments of primitive types are wrapped in instances of the
+     * appropriate primitive wrapper class, such as
+     * {@code java.lang.Integer} or {@code java.lang.Boolean}.
+     *
+     * @return 返回值
+     * @throws Throwable
+     */
+
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        /*
-         * 1、封装报文，然后将封装好的报文写到channel中
-         */
-        RequestPayload requestPayload = RequestPayload.builder()
-                .interfaceName(interfaceRef.getName())
-                .methodName(method.getName())
-                .parameterType(method.getParameterTypes())
-                .parametersValue(args)
-                .returnType(method.getReturnType())
-                .build();
+        //从接口中获取判断接口需要重试
+        TryTimes annotation = method.getAnnotation(TryTimes.class);
+        //默认0代表不重试
+        int trytimes = 0; //默认不重试
+        int intervaltime = 0; //默认重试间隔时间
+        if (annotation != null) {
+           trytimes = annotation.tryTimes();
+           intervaltime = annotation.intervalTime();
 
-        ZkrpcRequest zkrpcRequest = ZkrpcRequest.builder()
-                .requestId(ZkrpcBootstrap.getInstance().getConfiguration().getIdGenerator().getId())
-                .compressType(CompressorFactory.getCompressor(ZkrpcBootstrap.getInstance().getConfiguration().getCompressType()).getCode())
-                .requestType(RequestType.REQUEST.getId())
-                .serializeType(SerializerFactory.getSerialzer(ZkrpcBootstrap.getInstance().getConfiguration().getSerializeType()).getCode())
-                .timeStamp(new Date().getTime())
-                .requestPayload(requestPayload)
-                .build();
-        //将请求存入本地线程，需要在合适的时候调用remove
-        ZkrpcBootstrap.REQUEST_THREAD_LOACL.set(zkrpcRequest);
-
-        //2、发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
-        InetSocketAddress address = ZkrpcBootstrap.getInstance().getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName());
-        if (log.isDebugEnabled()){
-            log.debug("服务调用方,返现了服务【{}】的可用主机【{}】",
-                    interfaceRef.getName(), address);
         }
+        while(true) {
+            //什么情况下需要重试 1、异常 2、响应有问题 code == 500
+            try {
+                /*
+                 * 1、封装报文，然后将封装好的报文写到channel中
+                 */
+                RequestPayload requestPayload = RequestPayload.builder()
+                        .interfaceName(interfaceRef.getName())
+                        .methodName(method.getName())
+                        .parameterType(method.getParameterTypes())
+                        .parametersValue(args)
+                        .returnType(method.getReturnType())
+                        .build();
 
-        //尝试从全局的缓存中获取一个channel
-        Channel channel = getAvaliableChannel(address);
-        if(log.isDebugEnabled()){
-            log.debug("获取了和【{}】建立的；链接通道，准备发送数据",address);
-        }
+                ZkrpcRequest zkrpcRequest = ZkrpcRequest.builder()
+                        .requestId(ZkrpcBootstrap.getInstance().getConfiguration().getIdGenerator().getId())
+                        .compressType(CompressorFactory.getCompressor(ZkrpcBootstrap.getInstance().getConfiguration().getCompressType()).getCode())
+                        .requestType(RequestType.REQUEST.getId())
+                        .serializeType(SerializerFactory.getSerialzer(ZkrpcBootstrap.getInstance().getConfiguration().getSerializeType()).getCode())
+                        .timeStamp(System.currentTimeMillis())
+                        .requestPayload(requestPayload)
+                        .build();
+                //将请求存入本地线程，需要在合适的时候调用remove
+                ZkrpcBootstrap.REQUEST_THREAD_LOACL.set(zkrpcRequest);
 
-        //写出报文
-        CompletableFuture<Object> completableFuture = new CompletableFuture<>();
-        ZkrpcBootstrap.PENDING_REQUEST.put(zkrpcRequest.getRequestId(), completableFuture);
-        //这里直接writeAndFlush写出了一个请求，这个请求的实例就会进入pipeline执行出站的一系列操作
-        //我们可以想象的到，第一个出站程序一定是将ZkrpcRequest-->二进制报文
-        channel.writeAndFlush(zkrpcRequest).addListener((ChannelFutureListener) promise->{
-            if (!promise.isSuccess()) {
-                completableFuture.completeExceptionally(promise.cause());
+                //2、发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
+                InetSocketAddress address = ZkrpcBootstrap.getInstance().getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName());
+                if (log.isDebugEnabled()) {
+                    log.debug("服务调用方,返现了服务【{}】的可用主机【{}】",
+                            interfaceRef.getName(), address);
+                }
+
+                //尝试从全局的缓存中获取一个channel
+                Channel channel = getAvaliableChannel(address);
+                if (log.isDebugEnabled()) {
+                    log.debug("获取了和【{}】建立的；链接通道，准备发送数据", address);
+                }
+
+                //写出报文
+                CompletableFuture<Object> completableFuture = new CompletableFuture<>();
+                ZkrpcBootstrap.PENDING_REQUEST.put(zkrpcRequest.getRequestId(), completableFuture);
+                //这里直接writeAndFlush写出了一个请求，这个请求的实例就会进入pipeline执行出站的一系列操作
+                //我们可以想象的到，第一个出站程序一定是将ZkrpcRequest-->二进制报文
+                channel.writeAndFlush(zkrpcRequest).addListener((ChannelFutureListener) promise -> {
+                    if (!promise.isSuccess()) {
+                        completableFuture.completeExceptionally(promise.cause());
+                    }
+                });
+                //清理ThreadLocal
+                ZkrpcBootstrap.REQUEST_THREAD_LOACL.remove();
+                return completableFuture.get(10, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                trytimes--;
+                try {
+                    Thread.sleep(intervaltime);
+                }catch (InterruptedException ex) {
+                    log.error("线程休眠时发生异常",ex);
+                }
+                if (trytimes <0) {
+                    log.error("对方法【{}】进行远程调用时发生异常,重试【{}】，依然不可用",
+                            method.getName(),trytimes, e);
+                    break;
+                }
+                log.error("在进行第【{}】次重试时发生异常",3-trytimes,e);
             }
-        });
-        //清理ThreadLocal
-        ZkrpcBootstrap.REQUEST_THREAD_LOACL.remove();
-
-        return completableFuture.get(10, TimeUnit.SECONDS);
+        }
+        throw new RuntimeException("执行远程方法"+method.getName()+"调用失败");
     }
 
 
