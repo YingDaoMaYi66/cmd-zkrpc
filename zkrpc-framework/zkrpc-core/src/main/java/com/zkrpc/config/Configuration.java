@@ -6,10 +6,18 @@ import com.zkrpc.compress.impl.GzipCompressor;
 import com.zkrpc.discovery.RegistryConfig;
 import com.zkrpc.loadbalancer.LoadBalancer;
 import com.zkrpc.loadbalancer.impl.RoundRobinLoadBalancer;
+import com.zkrpc.protection.CircuitBreaker;
+import com.zkrpc.protection.RateLimiter;
+import com.zkrpc.protection.TokenBuketRateLimiter;
 import com.zkrpc.serialize.Serializer;
 import com.zkrpc.serialize.impl.JdkSerializer;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 全局配置类，优先代码配置----->xml配置--->默认配置
@@ -40,6 +48,11 @@ public class Configuration {
 
     // 配置信息-->负载均衡策略
     private LoadBalancer loadBalancer = new RoundRobinLoadBalancer();
+
+    // 为每一个ip配置一个限流器
+    private final Map<SocketAddress, RateLimiter> everyIpRateLimiter = new ConcurrentHashMap<>(16);
+    //为每一个ip配置一个断路器，熔断
+    private final Map<SocketAddress, CircuitBreaker> everyIpCircuitBreaker = new ConcurrentHashMap<>(16);
 
     // 读xml，dom4j
     public Configuration() {

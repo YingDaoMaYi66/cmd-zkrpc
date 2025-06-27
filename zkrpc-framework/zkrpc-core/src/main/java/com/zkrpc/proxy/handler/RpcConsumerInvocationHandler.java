@@ -7,6 +7,7 @@ import com.zkrpc.discovery.Registry;
 import com.zkrpc.enumeration.RequestType;
 import com.zkrpc.exceptions.DiscoveryException;
 import com.zkrpc.exceptions.NetworkException;
+import com.zkrpc.protection.CircuitBreaker;
 import com.zkrpc.serialize.SerializerFactory;
 import com.zkrpc.transport.message.RequestPayload;
 import com.zkrpc.transport.message.ZkrpcRequest;
@@ -17,7 +18,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.Date;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -63,7 +68,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        //从接口中获取判断接口需要重试
+        //从接口中获取判断接口是否需要重试
         TryTimes annotation = method.getAnnotation(TryTimes.class);
         //默认0代表不重试
         int trytimes = 0; //默认不重试
@@ -75,7 +80,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         }
         while(true) {
             //什么情况下需要重试 1、异常 2、响应有问题 code == 500
-            try {
+
                 /*
                  * 1、封装报文，然后将封装好的报文写到channel中
                  */
@@ -86,7 +91,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                         .parametersValue(args)
                         .returnType(method.getReturnType())
                         .build();
-
+                //创建请求
                 ZkrpcRequest zkrpcRequest = ZkrpcRequest.builder()
                         .requestId(ZkrpcBootstrap.getInstance().getConfiguration().getIdGenerator().getId())
                         .compressType(CompressorFactory.getCompressor(ZkrpcBootstrap.getInstance().getConfiguration().getCompressType()).getCode())
@@ -95,23 +100,47 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                         .timeStamp(System.currentTimeMillis())
                         .requestPayload(requestPayload)
                         .build();
-                //将请求存入本地线程，需要在合适的时候调用remove
+                //2、将请求存入本地线程，需要在合适的时候调用remove
                 ZkrpcBootstrap.REQUEST_THREAD_LOACL.set(zkrpcRequest);
 
-                //2、发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
-                InetSocketAddress address = ZkrpcBootstrap.getInstance().getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName());
+                //3、发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
+                InetSocketAddress address = ZkrpcBootstrap.getInstance()
+                        .getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName());
                 if (log.isDebugEnabled()) {
                     log.debug("服务调用方,返现了服务【{}】的可用主机【{}】",
                             interfaceRef.getName(), address);
                 }
+                //4、获取当前地址所对应的断路器，如果断路器是打开的则不发送请求，抛出异常
+            Map<SocketAddress, CircuitBreaker> everyIpCircuitBreaker = ZkrpcBootstrap.getInstance()
+                    .getConfiguration().getEveryIpCircuitBreaker();
+            CircuitBreaker circuitBreaker = everyIpCircuitBreaker.get(address);
+            if (circuitBreaker == null) {
+                circuitBreaker = new CircuitBreaker(10,0.5f);
+                everyIpCircuitBreaker.put(address, circuitBreaker);
+            }
+            try {
+                //如果断路器是打开的
+                if (zkrpcRequest.getRequestType() != RequestType.HEART_BEAT.getId() && circuitBreaker.isBreak()){
+                    //定期打开
+                    Timer timer = new Timer();
+                    timer.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            ZkrpcBootstrap.getInstance()
+                                    .getConfiguration().getEveryIpCircuitBreaker()
+                                    .get(address).reset();
+                        }
+                    },5000);
+                    throw new RuntimeException("当前断路器已经开启，无法发送请求");
+                }
 
-                //尝试从全局的缓存中获取一个channel
+                // 5、尝试从全局的缓存中获取一个channel
                 Channel channel = getAvaliableChannel(address);
                 if (log.isDebugEnabled()) {
                     log.debug("获取了和【{}】建立的；链接通道，准备发送数据", address);
                 }
 
-                //写出报文
+                // 6、写出报文
                 CompletableFuture<Object> completableFuture = new CompletableFuture<>();
                 ZkrpcBootstrap.PENDING_REQUEST.put(zkrpcRequest.getRequestId(), completableFuture);
                 //这里直接writeAndFlush写出了一个请求，这个请求的实例就会进入pipeline执行出站的一系列操作
@@ -121,11 +150,17 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                         completableFuture.completeExceptionally(promise.cause());
                     }
                 });
-                //清理ThreadLocal
+                // 7、清理ThreadLocal
                 ZkrpcBootstrap.REQUEST_THREAD_LOACL.remove();
-                return completableFuture.get(10, TimeUnit.SECONDS);
+                // 8、获得响应结果
+                Object result = completableFuture.get(10, TimeUnit.SECONDS);
+                //如果成功拿到一个结果，记录成功的请求
+                circuitBreaker.recordRequest();
+                return result;
             } catch (Exception e) {
                 trytimes--;
+                //记录错误的次数
+                circuitBreaker.recordErrorRequest();
                 try {
                     Thread.sleep(intervaltime);
                 }catch (InterruptedException ex) {

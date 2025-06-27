@@ -1,11 +1,15 @@
 package com.zkrpc.channelhandler.handler;
 
 import com.zkrpc.ZkrpcBootstrap;
+import com.zkrpc.enumeration.RespCode;
+import com.zkrpc.exceptions.ResponseException;
+import com.zkrpc.protection.CircuitBreaker;
 import com.zkrpc.transport.message.ZkrpcResponse;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
-
+import java.net.SocketAddress;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /*
@@ -15,13 +19,50 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class MySimpleChannelInboundHandler extends SimpleChannelInboundHandler<ZkrpcResponse> {
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, ZkrpcResponse zkrpcResponse) throws Exception {
-        //服务提供方给予的结果
-        Object returnValue = zkrpcResponse.getBody();
         //从全局的挂起的请求中寻找与之匹配的待处理的cf
         CompletableFuture<Object> completableFuture = ZkrpcBootstrap.PENDING_REQUEST.get(zkrpcResponse.getRequestId());
-        completableFuture.complete(returnValue);
-        if(log.isDebugEnabled()){
-            log.debug("已经寻找到编号为【{}】的completablefuture，处理响应结果", zkrpcResponse.getRequestId());
+
+        SocketAddress socketAddress = channelHandlerContext.channel().remoteAddress();
+        Map<SocketAddress, CircuitBreaker> everyIpCircuitBreaker = ZkrpcBootstrap
+                .getInstance().getConfiguration().getEveryIpCircuitBreaker();
+        CircuitBreaker circuitBreaker = everyIpCircuitBreaker.get(socketAddress);
+        byte code = zkrpcResponse.getCode();
+
+        if (code == RespCode.FAIL.getCode()){
+
+            circuitBreaker.recordErrorRequest();
+            completableFuture.complete(null);
+            log.error("当前id为[{}]的请求，返回错误的结果，响应码[{}]", zkrpcResponse.getRequestId(), zkrpcResponse.getCode());
+            throw new ResponseException(code,RespCode.FAIL.getDesc());
+
+        }else if (code == RespCode.RATE_LIMIT.getCode()){
+
+            circuitBreaker.recordErrorRequest();
+            completableFuture.complete(null);
+            log.error("当前id为[{}]的请求，被限流，响应码[{}]", zkrpcResponse.getRequestId(), zkrpcResponse.getCode());
+            throw new ResponseException(code,RespCode.RATE_LIMIT.getDesc());
+
+
+        }else if (code == RespCode.RESOURCE_NOT_FOUND.getCode()){
+
+            circuitBreaker.recordErrorRequest();
+            completableFuture.complete(null);
+            log.error("当前id为[{}]的请求，未找到目标资源，响应码[{}]", zkrpcResponse.getRequestId(), zkrpcResponse.getCode());
+            throw new ResponseException(code,RespCode.RESOURCE_NOT_FOUND.getDesc());
+        } else if (code == RespCode.SUCCESS.getCode()) {
+            //服务提供方给予的结果
+            Object returnValue = zkrpcResponse.getBody();
+            completableFuture.complete(returnValue);
+
+            if(log.isDebugEnabled()){
+                log.debug("已经寻找到编号为【{}】的completablefuture，处理响应结果", zkrpcResponse.getRequestId());
+            }
+        }else if (code == RespCode.SUCCESS_HEART_BEAT.getCode()){
+            completableFuture.complete(null);
+            if(log.isDebugEnabled()){
+                log.debug("已经寻找到编号为【{}】的completablefuture，处理处理响应结果", zkrpcResponse.getRequestId());
+            }
         }
+
     }
 }

@@ -21,18 +21,18 @@ public class ConsumerApplication {
         System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
         HelloZkrpc helloZkrpc = reference.get();
-        while(true) {
-            try {
-                Thread.sleep(10000);
-                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            for (int i = 0; i < 5; i++) {
+//        while(true) {
+//            try {
+//                Thread.sleep(10000);
+//                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+//            } catch (InterruptedException e) {
+//                throw new RuntimeException(e);
+//            }
+            for (int i = 0; i < 499; i++) {
                 String sayHi = helloZkrpc.sayHi("你好zkrpc");
                 log.info("sayHi:{}", sayHi);
             }
-        }
+//        }
         //获取一个代理对象
 
 
