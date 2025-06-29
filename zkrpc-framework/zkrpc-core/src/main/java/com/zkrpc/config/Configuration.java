@@ -11,6 +11,7 @@ import com.zkrpc.protection.RateLimiter;
 import com.zkrpc.protection.TokenBuketRateLimiter;
 import com.zkrpc.serialize.Serializer;
 import com.zkrpc.serialize.impl.JdkSerializer;
+import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,6 +32,9 @@ public class Configuration {
 
     // 配置信息-->应用程序的名字
     private String appName = "default";
+
+    // 服务分组信息
+    private  String group = "default";
 
     // 配置信息-->注册中心
     private RegistryConfig registryConfig = new RegistryConfig("zookeeper://127.0.0.1:2181");

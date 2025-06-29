@@ -39,10 +39,12 @@ import java.util.concurrent.TimeoutException;
 public class RpcConsumerInvocationHandler implements InvocationHandler {
     private final Registry registry;
     private final Class<?> interfaceRef;
+    private String group;
 
-    public RpcConsumerInvocationHandler(Registry registry, Class<?> interfaceRef) {
+    public RpcConsumerInvocationHandler(Registry registry, Class<?> interfaceRef,String group) {
         this.registry = registry;
         this.interfaceRef = interfaceRef;
+        this.group = group;
     }
 
     /**
@@ -105,7 +107,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
 
                 //3、发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
                 InetSocketAddress address = ZkrpcBootstrap.getInstance()
-                        .getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName());
+                        .getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName(),group);
                 if (log.isDebugEnabled()) {
                     log.debug("服务调用方,返现了服务【{}】的可用主机【{}】",
                             interfaceRef.getName(), address);

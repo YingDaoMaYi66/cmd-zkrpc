@@ -5,14 +5,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * 自定义包扫描注解
- */
-//在
-@Target(ElementType.TYPE)
+@Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface ZkrpcApi {
-    // 服务分组，默认空字符串
-    String group() default "default";
-
+public @interface ZkrpcService {
 }

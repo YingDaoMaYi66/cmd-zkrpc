@@ -3,7 +3,9 @@ package com.zkrpc.channelhandler.handler;
 import com.zkrpc.ZkrpcBootstrap;
 import com.zkrpc.enumeration.RespCode;
 import com.zkrpc.exceptions.ResponseException;
+import com.zkrpc.loadbalancer.LoadBalancer;
 import com.zkrpc.protection.CircuitBreaker;
+import com.zkrpc.transport.message.ZkrpcRequest;
 import com.zkrpc.transport.message.ZkrpcResponse;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -62,6 +64,26 @@ public class MySimpleChannelInboundHandler extends SimpleChannelInboundHandler<Z
             if(log.isDebugEnabled()){
                 log.debug("已经寻找到编号为【{}】的completablefuture，处理处理响应结果", zkrpcResponse.getRequestId());
             }
+        }
+        else if (code == RespCode.BeCOLSING.getCode()){
+            completableFuture.complete(null);
+            if(log.isDebugEnabled()){
+                log.debug("当前id为[{}]的请求，访问被拒绝，目标服务器正处在关闭中响应码[{}]",
+                        zkrpcResponse.getRequestId(), zkrpcResponse.getCode());
+            }
+            // 修正负载均衡器
+            // 先将负载均衡从健康列表中移除
+            ZkrpcBootstrap.CHANNEL_CACHE.remove(socketAddress);
+            // 找到负载均衡器进行reloadbalance
+            LoadBalancer loadBalancer = ZkrpcBootstrap.getInstance()
+                    .getConfiguration().getLoadBalancer();
+            //重新进行负载均衡
+            ZkrpcRequest zkrpcRequest = ZkrpcBootstrap.REQUEST_THREAD_LOACL.get();
+
+            loadBalancer.reLoadBalance(zkrpcRequest.getRequestPayload().getInterfaceName()
+                    ,ZkrpcBootstrap.CHANNEL_CACHE.keySet().stream().toList());
+
+            throw new ResponseException(code,RespCode.BeCOLSING.getDesc());
         }
 
     }

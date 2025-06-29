@@ -28,7 +28,7 @@ public class HeartbeatDetector {
 
         //1、从注册中心拉取服务列表并建立连接
         Registry registry = ZkrpcBootstrap.getInstance().getConfiguration().getRegistryConfig().getRegistry();
-        List<InetSocketAddress> addresses = registry.lookup(ServiceName);
+        List<InetSocketAddress> addresses = registry.lookup(ServiceName,ZkrpcBootstrap.getInstance().getConfiguration().getGroup());
 
         //2、将连接进行缓存
         for (InetSocketAddress address : addresses) {

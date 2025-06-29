@@ -53,7 +53,7 @@ public class NacosRegistry extends AbstractRegistry {
     }
 
     @Override
-    public List<InetSocketAddress> lookup(String name) {
+    public List<InetSocketAddress> lookup(String name,String group) {
 //        //1、找到服务对应的节点
 //        String serviceNode = Constant.BASE_PROVIDERS_PATH+"/"+name;
 //        //2、从zk中获取他的子节点 192.168.12.123:2151

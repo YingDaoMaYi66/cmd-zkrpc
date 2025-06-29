@@ -27,7 +27,7 @@ public class UpAndDownWatcher implements Watcher {
             //获取注册中心
             Registry registry = ZkrpcBootstrap.getInstance().getConfiguration().getRegistryConfig().getRegistry();
             //zookeeper发现
-            List<InetSocketAddress> addresses = registry.lookup(serviceName);
+            List<InetSocketAddress> addresses = registry.lookup(serviceName,ZkrpcBootstrap.getInstance().getConfiguration().getGroup());
             //处理新增的节点
             for (InetSocketAddress address : addresses) {
                 //新增的节点 会在address 不在CHANNEL_CACHE

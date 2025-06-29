@@ -11,6 +11,8 @@ import java.lang.reflect.Proxy;
 public class ReferenceConfig<T> {
     private Class<T> interfaceRef;
     private Registry registry;
+    //分组信息
+    private String group;
 
 
     public Class<T> getInterface() {
@@ -32,7 +34,7 @@ public class ReferenceConfig<T> {
     public T  get() {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         Class<T>[] classes = new Class[]{interfaceRef};
-        InvocationHandler handler = new RpcConsumerInvocationHandler(registry, interfaceRef);
+        InvocationHandler handler = new RpcConsumerInvocationHandler(registry, interfaceRef, group);
         Object helloProxy = Proxy.newProxyInstance(classLoader, classes, handler);
         return (T) helloProxy;
     }
@@ -43,5 +45,9 @@ public class ReferenceConfig<T> {
 
     public void setRegistry(Registry registry) {
         this.registry = registry;
+    }
+
+    public void setGroup(String group) {
+        this.group = group;
     }
 }

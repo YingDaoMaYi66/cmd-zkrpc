@@ -6,6 +6,7 @@ import com.zkrpc.channelhandler.handler.ZkrpcRequestDecoder;
 import com.zkrpc.channelhandler.handler.ZkrpcResponseEncoder;
 import com.zkrpc.config.Configuration;
 import com.zkrpc.core.HeartbeatDetector;
+import com.zkrpc.core.ZkrpcShutdownHook;
 import com.zkrpc.discovery.RegistryConfig;
 import com.zkrpc.loadbalancer.LoadBalancer;
 import com.zkrpc.transport.message.ZkrpcRequest;
@@ -127,6 +128,8 @@ public class ZkrpcBootstrap {
      * 启动netty服务
      */
     public void start() {
+        // 注册一个关闭应用程序的钩子函数
+        Runtime.getRuntime().addShutdownHook(new ZkrpcShutdownHook());
         //创建eventLoop,老板只负责处理请求，之后会将请求分发到worker
         EventLoopGroup boss = new NioEventLoopGroup(2);
         EventLoopGroup worker = new NioEventLoopGroup(10);
@@ -174,6 +177,8 @@ public class ZkrpcBootstrap {
         HeartbeatDetector.detectHeartbeat(reference.getInterface().getName());
 
         reference.setRegistry(configuration.getRegistryConfig().getRegistry());
+
+        reference.setGroup(this.getConfiguration().getGroup());
         return this;
     }
 
@@ -231,11 +236,16 @@ public class ZkrpcBootstrap {
                      IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
+            //获取分组信息
+            ZkrpcApi zkrpcApi = clazz.getAnnotation(ZkrpcApi.class);
+            String group = zkrpcApi.group();
+
 
             for (Class<?> anInterface : interfaces) {
                 ServiceConfig<Object> serviceConfig = new ServiceConfig<>();
                 serviceConfig.setInterface(anInterface);
                 serviceConfig.setRef(instance);
+                serviceConfig.setGroup(group);
                 if (log.isDebugEnabled()) {
                     log.debug("----->已经通过包扫描，将服务【{}】发布",anInterface);
                 }
@@ -303,5 +313,10 @@ public class ZkrpcBootstrap {
 
     public Configuration getConfiguration() {
         return configuration;
+    }
+
+    public ZkrpcBootstrap group(String group) {
+        this.getConfiguration().setGroup(group);
+        return this;
     }
 }

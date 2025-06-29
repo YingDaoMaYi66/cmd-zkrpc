@@ -16,6 +16,7 @@ public class ConsumerApplication {
                 .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
                 .serialize("hessian")
                 .compress("gzip")
+                .group("primary")
                 .reference(reference);
 
         System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
@@ -28,7 +29,7 @@ public class ConsumerApplication {
 //            } catch (InterruptedException e) {
 //                throw new RuntimeException(e);
 //            }
-            for (int i = 0; i < 499; i++) {
+            for (int i = 0; i < 19; i++) {
                 String sayHi = helloZkrpc.sayHi("你好zkrpc");
                 log.info("sayHi:{}", sayHi);
             }
